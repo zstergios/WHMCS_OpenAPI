@@ -1,7 +1,15 @@
 <?php
+/**
+ * @package		WHMCS openAPI 
+ * @version     1.2
+ * @author      Stergios Zgouletas <info@web-expert.gr>
+ * @link        http://www.web-expert.gr
+ * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
+ * @license     http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL
+**/
 if(!defined("WHMCS")) die("This file cannot be accessed directly");
 
-class WClientarea{
+class WOAClientarea{
 	protected $ca;
 	protected $breadCrump=array();
 	protected $pagetitle='Custom Page';
@@ -16,18 +24,8 @@ class WClientarea{
 	}
 	
 	public function initialize($pagetitle=null){
-		$api=WAPI::getInstance();
-		$this->setPageTitle($pagetitle);
-		
-		$whmcsRoot=realpath(dirname(__FILE__)."/../../../../").DIRECTORY_SEPARATOR;
-		if (version_compare(WHMCSV, '5.2.0') >= 0) {
-			require($whmcsRoot."init.php");
-		}else{
-			require($whmcsRoot."dbconnect.php");
-			require($whmcsRoot."includes/functions.php");
-			require($whmcsRoot."includes/clientareafunctions.php");
-		}
-		
+		$api=WOAAPI::getInstance();
+		$this->setPageTitle($pagetitle);		
 		if (version_compare(WHMCSV, '5.2.0') >= 0) {
 			$this->ca = new WHMCS_ClientArea();
 			$this->ca->setPageTitle($api->getLang($this->pagetitle));
@@ -49,22 +47,63 @@ class WClientarea{
 		}
 	}
 	
-	public function addBreadcrump($page,$languageKey){
+	public function addBreadcrump($page,$languageKey)
+	{
 		$this->breadCrump[$page]=$languageKey;
 	}
 	
-	public function setBreadcrump($breadCrump=array()){
+	public function setBreadcrump($breadCrump=array())
+	{
 		$this->breadCrump=$breadCrump;
 	}
 	
-	public function output($template,$smartyvalues=array()){
-		if (version_compare(WHMCSV, '5.2.0') >= 0) {
-			foreach($smartyvalues as $key =>$val){
+	public function isLoggedIn()
+	{
+		if (version_compare(WHMCSV, '6.0.0') >= 0)
+		{
+			return $this->ca->isLoggedIn();
+		}
+		return (isset($_SESSION['uid']) && (int)$_SESSION['uid']>0)?true:false;
+	}
+	
+	public function getUserID()
+	{
+		if (version_compare(WHMCSV, '6.0.0') >= 0)
+		{
+			return $this->ca->getUserID();
+		}
+		return (int)$_SESSION['uid'];
+	}
+	
+	public function requireLogin()
+	{
+		if (version_compare(WHMCSV, '6.0.0') >= 0)
+		{
+			$this->ca->requireLogin();
+		}
+		else
+		{
+			if(!$this->isLoggedIn())
+			{
+				$_SESSION['loginurlredirect'] = $_SERVER['REQUEST_URI'];
+				WOAAPI::redirect('clientarea.php');			
+			}
+		}
+	}
+	
+	public function output($template,$smartyvalues=array())
+	{
+		if (version_compare(WHMCSV, '5.2.0') >= 0)
+		{
+			foreach($smartyvalues as $key =>$val)
+			{
 				$this->ca->assign($key,$val);
 			}
-			$this-ca->setTemplate($template);
-			$this-ca->output();	
-		}else{
+			$this->ca->setTemplate($template);
+			$this->ca->output();	
+		}
+		else
+		{
 			outputClientArea($template);
 		}
 	}

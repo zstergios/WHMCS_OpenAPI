@@ -1,17 +1,31 @@
 <?php
-if(!defined("WHMCS")) die("This file cannot be accessed directly");
-if(!class_exists('WDB')) require_once(dirname(__FILE__).DIRECTORY_SEPARATOR."classes".DIRECTORY_SEPARATOR."db.php");
-if(!class_exists('WAPI'))require_once(dirname(__FILE__).DIRECTORY_SEPARATOR."classes".DIRECTORY_SEPARATOR."api.php");
-if(defined("CLIENTAREA") && !class_exists('WClientarea')) require_once(dirname(__FILE__).DIRECTORY_SEPARATOR."classes".DIRECTORY_SEPARATOR."clientarea.php");
+/**
+ * @package		WHMCS openAPI 
+ * @version     1.2
+ * @author      Stergios Zgouletas <info@web-expert.gr>
+ * @link        http://www.web-expert.gr
+ * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
+ * @license     http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL
+**/
+if(!defined('WHMCS'))
+{
+	$whmcsRoot=realpath(dirname(__FILE__)."/../../../").DIRECTORY_SEPARATOR;
+	//WHMCS 5.2+
+	if (file_exists($whmcsRoot."init.php"))
+	{
+		require_once($whmcsRoot."init.php");
+	}
+	else
+	{
+		require_once($whmcsRoot."dbconnect.php");
+		require_once($whmcsRoot."includes/functions.php");
+		require_once($whmcsRoot."includes/clientareafunctions.php");
+	}
+}
+$classPath=dirname(__FILE__).DIRECTORY_SEPARATOR."classes".DIRECTORY_SEPARATOR;
+if(!defined('WOAPI_CLASSPATH')) define('WOAPI_CLASSPATH',$classPath);
 
-define("CLIENTAREA",true);
-define("FORCESSL",true);
-$openAPI=ROODIR."/modules/addons/openAPI/init.php";
-if(!file_exists($openAPI)) exit('This addon requires openAPI addon module');
-require($openAPI);
-
-$pagetitle='MY_TITLE';
-$ca=new WClientarea($pagetitle);
-$ca->setBreadcrump(array('mypage.php'=>'languageKey'));
-$ca->initialize();
-$ca->output("managesms",$smartyvalues);
+if(!class_exists('WOADB')) require($classPath."db.php");
+if(!class_exists('WOAAPI')) require($classPath."api.php");  
+if(!class_exists('WOAForms')) require($classPath."forms.php");
+if(defined("CLIENTAREA") && !class_exists('WOAClientarea')) require($classPath."clientarea.php");

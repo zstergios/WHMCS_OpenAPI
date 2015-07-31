@@ -1,21 +1,30 @@
 <?php
+/**
+ * @package		WHMCS openAPI 
+ * @version     1.2
+ * @author      Stergios Zgouletas <info@web-expert.gr>
+ * @link        http://www.web-expert.gr
+ * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
+ * @license     http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL
+**/
 if(!defined("WHMCS")) die("This file cannot be accessed directly");
 
-class WAPI{
-	private static $version='1.0';
+class WOAAPI{
+	private static $version='1.2';
 	protected $debug=false;
 	protected $moduleConfig=array();
 	protected $whmcsconfig=null;
-	private $whmcsObject=null;
+	protected $timeout=30;
+	protected $updateServers=array();
 	private static $instance;
-	private $this->db=null;
+	protected $db=null;
 	
 	function __construct()
 	{
-		$this->debug=false;
-		$this->db=WDB::getInstance();
+		$this->db=WOADB::getInstance();
 		$whmcs=$this->getWhmcsConfig();
-		if(!defined('WHMCSV')) define('WHMCSV',$whmcs["Version"]);
+		list($Version,$Release)=@explode('-',$whmcs["Version"]);
+		if(!defined('WHMCSV')) define('WHMCSV',$Version);
 	}
 	
 	public static function getInstance()
@@ -26,36 +35,88 @@ class WAPI{
 	
 	function setDebug($status)
 	{
-		$this->debug=$status;
+		$this->debug=(boolean)$status;
 	}
 	
-	public function getLang($key)
+	public function microtime_float()
 	{
-		$languageTxt='';
-		if(defined('CLIENTAREA') && version_compare(WHMCSV, '6.0.0') >= 0){
-			if(empty($this->whmcsObject)){
-				require(ROOTDIR."/init.php");
-				$this->whmcsObject=$whmcs;
-			}
-			$languageTxt=$this->whmcsObject->get_lang($key);
-		}else{
-			global $_LANG;
-			$languageTxt=isset($_LANG[$key])?$_LANG[$key]:'';
+		list ($msec, $sec) = @explode(' ', microtime());
+		$microtime = (float)$msec + (float)$sec;
+		return $microtime;
+	}
+	
+	public function getLang($key,$language=null)
+	{
+		global $_LANG;
+		$languageTxt=isset($_LANG[$key])?$_LANG[$key]:'';
+		if($this->debug && empty($languageTxt)) $languageTxt='*'.$key.'*';
+		return $languageTxt;
+	}
+	
+	public function getUpdateServer($module)
+	{
+		return isset($this->updateServers[$module])?$this->updateServers[$module]:NULL;
+	}
+	
+	public function setUpdateServer($url,$module)
+	{
+		$this->updateServers[$module]=$url;
+	}
+	
+	public function checkUpdate($currentVersion,$module,$url='')
+	{
+		
+		if(!empty($url))
+		{
+			$this->setUpdateServer($url,$module);
+		}
+			
+		if(isset($this->updateServers[$module]))
+		{
+			$data=$this->getRemoteData($this->updateServers[$module],array('version'=>$currentVersion));
+		}
+		else
+		{
+			$data=array('response'=>null,'error'=>'Update server URL for "'.$module.'" has not been set');
 		}
 		
-		if(empty($languageTxt)) $languageTxt=($this->debug)?'*'.$key.'*':$key;
-		return $languageTxt;
+		return $data;
+	}
+	
+	public function callAPI($values,$username=NULL)
+	{
+		$rs = localAPI($values["action"],$values,$username);
+		return $rs;
+	}
+	
+	function printJSON($data=array()){
+		header('Content-Type: application/json; charset=utf-8',true);
+		exit(json_encode($data));
 	}
 	
 	public static function redirect($url,$seconds=0)
 	{
-		if(headers_sent() || $seconds>0){
+		if(headers_sent() || $seconds>0)
+		{
 			echo "<script>setTimeout(\"location.href = '".$url."';\",".($seconds*1000).");</script>";
-		}else{
+		}
+		else
+		{
 			@header('Location:'.$url);
 		}
-		exit;
+		exit();
 	}
+	
+	/*Current Page URL*/
+	public function curPageURL($onlyDomain=false) {
+		$pageURL = 'http';
+		if($_SERVER["HTTPS"] == "on") $pageURL .= "s";
+		$pageURL .= "://".$_SERVER["SERVER_NAME"];
+		if($onlyDomain) return $pageURL;
+		$pageURL.=$_SERVER["REQUEST_URI"];
+		return str_replace('&amp;','&',$pageURL);
+	}
+	
 	
 	//Utf-8 String Handling
 	################################################
@@ -74,32 +135,19 @@ class WAPI{
 		return (function_exists('mb_strlen'))?mb_strlen($str):strlen($str);
 	}
 	
-	//WHMCS USER CUSTOMFIELDS
-	public function updateCustomField($fieldid,$userid,$value="")
-	{
-		if((int)$fieldid<1 || (int)$userid<1) return false;
-		$r=$this->db->query("SELECT value FROM `tblcustomfieldsvalues` WHERE fieldid=".$fieldid." AND relid=".$userid." LIMIT 1;");
-		if($this->db->num_rows($r)>0) 
-			return $this->db->query("UPDATE tblcustomfieldsvalues SET value='".$value."' WHERE fieldid='".$fieldid."' AND relid='".$userid."';");
-		else
-			return $this->db->query("INSERT IGNORE INTO `tblcustomfieldsvalues` (`fieldid`, `relid`, `value`) VALUES ('".$fieldid."','".$userid."','".$value."');");
+	function cfirst($str){
+		return ucfirst(strtolower($str));
 	}
 	
-	public function getCustomField($fieldid,$userid)
-	{
-		if((int)$fieldid<1 || (int)$userid<1) return '';
-		$data=$this->db->getRow("SELECT value FROM `tblcustomfieldsvalues` WHERE fieldid=".$fieldid." AND relid=".$userid." LIMIT 1;");
-		return $data["value"];
-	}
-	
-	//File/Fodlder Functions
+	//File/Folder Functions
 	public function getFiles($dir,$ext=array())
 	{
 		$dir=rtrim($dir,DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
 		if(!is_dir($dir)) return array();
 		$files=array();
 		$results = scandir($dir);
-		foreach ($results as $file) {
+		foreach ($results as $file)
+		{
 			if ($file === '.' || $file === '..' || !is_file($dir.$file)) continue;
 			$extension=@end(@explode(".",$file,2));
 			$filename=str_replace('.'.$extension,'',$file);
@@ -125,27 +173,21 @@ class WAPI{
 	{
 		if(!is_dir($folder)) return false;
 	 	$files = glob($folder.'/*'); // get all file names
-		if(count($files)){
-			foreach($files as $file){
+		if(count($files))
+		{
+			foreach($files as $file)
+			{
 			  if(is_file($file)) unlink($file); // delete file
 			}
 		}
 		return rmdir($folder);
 	}
 	
-	public function getLanguagesFiles($exts=array(".php"))
-	{
-		$files=$this->getFiles(ROOTDIR.DIRECTORY_SEPARATOR.'lang',$exts);
-		return $files;
-	}
-	
 	/*Array Functions*/
 	public function array_remove($input=array(),$remove=array())
 	{
-		if(!is_array($remove)) $remove=(array)$remove;
-		$arr = array_diff($input,$remove);
-		$arr = array_values($arr);
-		return $arr;
+		$arr = array_diff((array)$input,(array)$remove);
+		return array_values($arr);
 	}
 	
 	public function getCountries()
@@ -163,26 +205,36 @@ class WAPI{
 	#Get WHMCS Config
 	public function getWhmcsConfig($key='')
 	{
-		if(!is_array($this->whmcsconfig)){
+		global $CONFIG;
+		//Read from Global Var if is set
+		if(is_array($CONFIG) && count($CONFIG))
+		{
+			$this->whmcsconfig=$CONFIG;
+		}
+		if(!is_array($this->whmcsconfig))
+		{
 			$this->whmcsconfig=array();
 			$rs=$this->db->query("SELECT * FROM tblconfiguration;");
-			while ($data = $this->db->fetch_array($rs)) {
+			while ($data = $this->db->fetch_array($rs))
+			{
 				$this->whmcsconfig[$data["setting"]]=$data["value"];
 			}
 		}
 		if(!empty($key) && $key=='SystemSSLURL' && empty($this->whmcsconfig[$key])) $key='SystemURL';
 		if(!empty($key) && is_array($this->whmcsconfig) && isset($this->whmcsconfig[$key])) return $this->whmcsconfig[$key];
-		if(!empty($this->whmcsconfig) && is_array($this->whmcsconfig)) return $this->whmcsconfig;
+		return $this->whmcsconfig;
 	}
 	
 	#Get Addon Config
 	public function getModuleParams($key=null,$module)
 	{
-		if(!count($this->moduleConfig) || !isset($this->moduleConfig[$module])){
+		if(!count($this->moduleConfig) || !isset($this->moduleConfig[$module]))
+		{
 			
 			$this->db->query('SELECT setting,value FROM tbladdonmodules WHERE module="'.$module.'";');
 			$this->moduleConfig[$module]=array();
-			while($row=$this->db->fetch_array()){
+			while($row=$this->db->fetch_array())
+			{
 				$this->moduleConfig[$module][$row['setting']]=trim($row['value']);
 			}
 		}
@@ -196,10 +248,10 @@ class WAPI{
 		$this->moduleConfig[$name]=$value;
 	}
 	
-	public function logActivity($desc='',$module)
+	public function logActivity($logtxt='',$module='openAPI')
 	{
-		if(empty($desc)) return false;
-		LogActivity($module.' - '.$desc);
+		if(empty($logtxt)) return false;
+		LogActivity($module.' - '.$logtxt);
 		return true;
 	}
 	
@@ -236,7 +288,8 @@ class WAPI{
 		$prepare.="Content-Type: text/plain; charset=\"".$charset."\"";
 		$prepare.="\nContent-Transfer-Encoding: base64\n";
 		$prepare.="\n".chunk_split(base64_encode($plainbody))."\n";
-		if($AllowHTML){
+		if($AllowHTML)
+		{
 			$prepare.="--OpenAPIInterface-".$random_hash."\n";
 			$prepare.="Content-Type: text/html; charset=\"".$charset."\"";
 			$prepare.="\nContent-Transfer-Encoding: base64\n";
@@ -273,8 +326,8 @@ class WAPI{
 				curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
 			}
 			curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-			curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-			curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30 );
+			curl_setopt($ch, CURLOPT_TIMEOUT, $this->timeout);
+			curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->timeout);
 			if(substr($url,0,5)=='https'){
 				curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 				curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
@@ -291,11 +344,11 @@ class WAPI{
 		{
 			if($method=='POST'){
 				if(!count($headers)) $headers[]='Content-type: application/x-www-form-urlencoded'; //default
-				$params = array('http' => array('method' => 'POST','content' => $fields,'follow_location'=>1,'timeout'=>30));
+				$params = array('http' => array('method' => 'POST','content' => $fields,'follow_location'=>1,'timeout'=>$this->timeout));
 			}else{
-				$params = array('http' => array('method' => 'GET','follow_location' =>1,'timeout'=>30));
+				$params = array('http' => array('method' => 'GET','follow_location' =>1,'timeout'=>$this->timeout));
 			}
-			$headers[]=$user_agent;
+			$headers[]='User-agent: '.$user_agent;
 			if (count($headers)>0)	$params['http']['header'] = implode("\r\n",$headers);
 			$ctx=@stream_context_create($params);
 			$contents=@file_get_contents($url,false,$ctx);
@@ -310,10 +363,17 @@ class WAPI{
 		}
 		return $values;
 	}
-
-	function print_data($values,$ret=false){
+	
+	function print_data($values,$ret=false)
+	{
 		$data='<pre>'.htmlspecialchars(print_r($values,true)).'</pre>';
 		if($ret) return $data;
 		echo $data;
+	}
+	
+	public function dump($var){
+		ob_start();
+		var_dump($var);
+		return ob_get_clean();
 	}
 }

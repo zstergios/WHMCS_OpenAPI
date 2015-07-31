@@ -1,11 +1,20 @@
 <?php
+/**
+ * @package		WHMCS openAPI 
+ * @version     1.2
+ * @author      Stergios Zgouletas <info@web-expert.gr>
+ * @link        http://www.web-expert.gr
+ * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
+ * @license     http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL
+**/
 if(!defined("WHMCS")) die("This file cannot be accessed directly");
 
-class WDB{
+class WOADB{
 	private static $instance;
 	protected $conn=null;
 	protected $mysqlActive=true;
 	public $counter=0;
+	protected $sql_query='';
 	protected $useMysqli=false;
 	protected $last_query=null;
 	public $charset=null;
@@ -28,8 +37,14 @@ class WDB{
 		if(!file_exists($configfile)) exit("configuration.php not found at ".$configfile);
 		require($configfile);
 		
+		/*$this->conn = mysql_connect($db_host,$db_username,$db_password,false);
+		if(!$this->conn){
+			$this->conn=NULL;
+			$this->mysqlActive=false;
+		}*/
+		
 		//Check if there is already connection
-		if(!@mysql_query('SELECT COUNT(*) AS sum FROM `tblconfiguration')){
+		if(!function_exists('mysql_query') || !@mysql_query('SELECT COUNT(*) AS sum FROM `tblconfiguration')){
 			$this->mysqlActive=false;
 		}
 		
@@ -116,20 +131,21 @@ class WDB{
 	
 	//Set query
 	public function query($q){
+		$this->sql_query=trim($q);
 		if($this->useMysqli){ 
-			$this->last_query=mysqli_query($this->conn,trim($q));
+			$this->last_query=mysqli_query($this->conn,$this->sql_query);
 		}else{
-			$this->last_query=mysql_query(trim($q));
+			$this->last_query=mysql_query($this->sql_query);
 		}
 		if(!$this->last_query){
-			if((int)$_REQUEST["debug"]==1) echo "<div style=\"border:1px dooted red;\">Error on Query: ".$q."\n".$this->error()."</div>";
+			if((int)$_REQUEST["debug"]==1) echo "<div style=\"border:1px dotted red;\">Error on Query: <i>".$this->sql_query."</i>\n".$this->error()."</div>";
 		}
 		$this->counter++;	
 		return $this->last_query;
 	}
 	
 	//Delete Row
-	public function insert($table,$where=array()){
+	public function delete($table,$where=array()){
 		if(empty($table)) return false;
 		foreach($fields as $key=>$value) $set[]=$this->quoteField($key).'='.$this->quoteValue($value);
 		$wh=$where;
@@ -175,17 +191,17 @@ class WDB{
 	
 	//Get Single Row
 	public function getRow($q){
-		$this->last_query=$this->query($q);
-		return $this->fetch_array($this->last_query);
+		return $this->fetch_array($this->query($q));
 	}
 	
 	//Fetch Array
-	public function fetch_array($rs=null,$type=MYSQLI_ASSOC){
+	public function fetch_array($rs=null,$type ='MYSQL_ASSOC'){
 		if(!$rs) $rs=$this->last_query;
+		$result_type=($type==='MYSQL_ASSOC')?MYSQL_ASSOC:constant(strtoupper($type));
 		if($this->useMysqli)
-			return mysqli_fetch_array($rs,$type);
+			return mysqli_fetch_array($rs,$result_type);
 		else
-			return mysql_fetch_array($rs,$type);
+			return mysql_fetch_array($rs,$result_type);
 	}
 	
 	//Fetch row

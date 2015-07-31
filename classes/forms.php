@@ -1,7 +1,15 @@
 <?php
+/**
+ * @package		WHMCS openAPI 
+ * @version     1.2
+ * @author      Stergios Zgouletas <info@web-expert.gr>
+ * @link        http://www.web-expert.gr
+ * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
+ * @license     http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL
+**/
 if(!defined("WHMCS")) die("This file cannot be accessed directly");
 
-class WForms{
+class WOAForms{
 	private static $instance;
 	protected $addon;
 	protected $addonPath;
@@ -16,28 +24,36 @@ class WForms{
 		return self::$instance;
 	}
 	
-	public static function setAddon($addon){
+	public function setAddon($addon){
 		$this->addon=$addon;
-		$this->addonPath=ROOTDITR.'/modules/addons/'.$this->addon;
-		$this-addonLink='addonmodules.php?module='.$this->addon;
+		$this->addonPath=ROOTDIR.'/modules/addons/'.$this->addon;
+		$this->addonLink='addonmodules.php?module='.$this->addon;
 	}
 	
-	function load($task){
-		$page=$this->addonPath.DIRECTORY_SEPARATOR.'pages'.DIRECTORY_SEPARATOR.strtolower($task).".php";
-		$function="Page".ucfirst(strtolower($task));
+	public function getAddon(){
+		return $this->addon;
+	}
+	
+	public function getAddonPath(){
+		return $this->addonPath;
+	}
+	
+	public function getAddonLink(){
+		return $this->addonLink;
+	}
+	
+	function load($view){
+		$page=$this->addonPath.DIRECTORY_SEPARATOR.'pages'.DIRECTORY_SEPARATOR.strtolower($view).".php";
+		$function="Page".ucfirst(strtolower($view));
 		if(file_exists($page)){
 			require_once($page);
-			$classname= ucfirst(strtolower($task))."Forms";
+			$classname= ucfirst(strtolower($view))."Forms";
 			$pageclass = new $classname();
-			if(!method_exists($pageclass,$function)) return '<h3>Sorry! The page <b>'.$task.'</b> is not found</h3>';
+			if(!method_exists($pageclass,$function)) return '<h3>Sorry! The page <b>'.$view.'</b> not found ('.$pageclass.'->'.$function.')</h3>';
 			return $pageclass->$function();
 		}
-		if(!method_exists($this,$function)) return '<h3>Sorry! The page <b>'.$task.'</b> is not found</h3>';
+		if(!method_exists($this,$function)) return '<h3>Sorry! The page file <b>'.$view.'</b> not found</h3>';
 		return $this->$function();
-	}
-	
-	function footer($footer){
-		return $footer;
 	}
 	
 	function tabber($tabs){
@@ -60,14 +76,18 @@ class WForms{
 		$("#tab0").addClass("tabselected");
 		$("#tab0box").css("display","");
 		  });</script>';
-		$html='<div>';
-		$html.='<div id="tabs" style="width:100%;"><ul>'; 
+		//if(version_compare(WHMCSV,'6.0.0','ge')) $js='<script>$(document).ready(function(){$( "a[href^=\'#tab\']" ).click( function() {  var tabID = $(this).attr(\'href\').substr(4); $("#tab").val(tabID);});</script>';
+		$html='<div id="tabs" style="width:100%;"><ul class="nav nav-tabs admin-tabs" role="tablist">'; 
 		$menuhtml=$contenthtml="";
 		for($i=0;$i<count($tabs);$i++){
-			$menuhtml.='<li id="tab'.$i.'" class="tab" style="border:1px solid #ccc;"><a href="javascript:;">'.$tabs[$i]['title'].'</a></li>';
-			$contenthtml.='<div id="tab'.$i.'box" class="tabbox"><div id="tab_content">'.$tabs[$i]['content'].'</div></div>';
+			//$id=version_compare(WHMCSV,'6.0.0','ge')?'tabLink':'tab';
+			$id='tab';
+			$menuhtml.='<li role="tab" data-toggle="tab" id="'.$id.$i.'" class="tab woatab"><a href="#tab'.$i.'">'.$tabs[$i]['title'].'</a></li>';
+			//$idBox=version_compare(WHMCSV,'6.0.0','ge')?'tab'.$i:'tab'.$i.'box';
+			$idBox='tab'.$i.'box';
+			$contenthtml.='<div id="'.$idBox.'" class="tabbox"><div id="tab_content">'.$tabs[$i]['content'].'</div></div>';
 		}
-		$html=$js.$html.$menuhtml.'</ul>'.$contenthtml.'</div></div>';
+		$html=$js.$html.$menuhtml.'</ul><div class="tab-content admin-tabs">'.$contenthtml.'</div></div>';
 		return $html;
 	}
 	
@@ -113,7 +133,7 @@ class WForms{
 		return $html;
 	}
 	
-	function checkboxes($name,$options,$selected,$extra="",$keyname='value',$sep=' '){
+	function checkboxes($name,$options=array(),$selected=array(),$extra="",$keyname='value',$sep=' '){
 		if(!is_array($options)) return false;
 		if(!is_array($selected)) $selected=explode(",",$selected);
 		$id=str_replace(array('[',']'),'',$name);
@@ -130,8 +150,9 @@ class WForms{
 		}
 		return '<div class="chkbox">'.implode($sep,$boxes).'</div>';
 	}
-	function radioboxes($name,$options,$selected,$keyname='value',$extra="",$sep=' '){
-		$checboxes=$this->checkboxes($name,$options,$selected,$keyname,$extra,$sep);
-		return str_replace(array("checkbox","chkbox",'[]"'),array("radio","rdbox",'"'),$checboxes);
+	
+	function radioboxes($name,$options=array(),$selected=array(),$extra="",$keyname='value',$sep=' '){
+		$checboxes=$this->checkboxes($name,$options,$selected,$extra,$keyname,$sep);
+		return str_replace(array("checkbox","chkbox","achkbox"),array("radio","rdbox",'ardkbox'),$checboxes);
 	}
 }
