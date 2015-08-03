@@ -16,7 +16,7 @@ function openAPI_config() {
 	(
 		"name" => "WHMCS OpenAPI (WOA)",
 		"description" => 'WHMCS OpenAPI (WOA) is an addon that helps developer for fast addon development <a target="_blank" href="https://github.com/zstergios/WHMCS_OpenAPI">gitHub</a>',
-		"version" => WOAAPI::$version,
+		"version" => WOAAPI::getVersion(),
 		"author" => "Web-expert.gr",
 		"language" => "english",
 		"fields" => array(),
@@ -36,27 +36,27 @@ function openAPI_output($vars) {
 	require_once('init.php');
 	$api=WOAAPI::getInstance();
 	$data=$api->checkUpdate($vars['version'],'openAPI');
-	
 	if(empty($data['error'])){
 		$data=explode(';',$data['response']);
 		$info=array();
 		foreach($data as $p){
+			if(empty($p)) continue;
 			list($key,$value)=explode('=',$p);
-			$info[$key]=$value;
+			$info[trim($key)]=trim($value);
 		}
-		echo '<p>Your Version:'.$vars['version'].'</p>';
-		echo '<p>Latest Version:'.$vars['version'].' Released: '.$vars['released'].'</p>';
-		echo '<p>Change-log: <a target="_blank" href="'.$vars['changelog-url'].'"> View changes</a></p>';
-		if(version_compare($vars['version'],'eq')){
+		echo '<p>Your Version is:'.$vars['version'].'</p>';
+		echo '<p>Latest Version is:'.$info['version'].' Released: '.$info['released'].'</p>';
+		echo '<p>ChangeLog: <a target="_blank" href="'.$info['changelog-url'].'"> View changes</a></p>';
+		if(version_compare($vars['version'],$info['version'],'eq')){
 			echo '<p class="alert alert-success">Well done, you have installed the latest version!</p>';
 		}
 		else
 		{
-			echo '<p class="alert alert-warning">You should consider upgrading to latest version v'.$vars['version'].'!</p>';
+			echo '<p class="alert alert-danger" style="font-weight:bold;">A newer version of '.$info['name'].' is available v'.$info['version'].'!</p>';
 		}
 	}
 	else
 	{
-		echo '<p class="alert alert-danger">Error Occured:'.$data['error'].'</p>';
+		echo '<p class="alert alert-warning">Error Occured:'.$data['error'].'</p>';
 	}
 }

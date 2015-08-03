@@ -1,9 +1,14 @@
+#Version 1.2.2
+-Addon Module now checks for update
+-WOAPI::getVersion() new function
+-Only WOAPI:$version stores the version numbering of WOP
+
 #Version 1.2.1
 -Update Server Added
 
 #Version 1.2.0
-- API::redirect() fixed
-- DB:Fetch query fixed on empty resource
+- WOAPI::redirect() fixed
+- WOADB:Fetch query fixed on empty resource
 
 #Version 1.1
 - Major Bugs Fixe

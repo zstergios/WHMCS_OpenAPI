@@ -10,7 +10,7 @@
 if(!defined("WHMCS")) die("This file cannot be accessed directly");
 
 class WOAAPI{
-	private static $version='1.2.1';
+	private static $version='1.2.2';
 	protected $debug=false;
 	protected $moduleConfig=array();
 	protected $whmcsconfig=null;
@@ -25,13 +25,18 @@ class WOAAPI{
 		$whmcs=$this->getWhmcsConfig();
 		list($Version,$Release)=@explode('-',$whmcs["Version"]);
 		if(!defined('WHMCSV')) define('WHMCSV',$Version);
-		$this->setUpdateServer('https://github.com/zstergios/WHMCS_OpenAPI/raw/master/update.ini','openAPI');
+		$this->setUpdateServer('https://raw.githubusercontent.com/zstergios/WHMCS_OpenAPI/master/update.ini','openAPI');
 	}
 	
 	public static function getInstance()
 	{
 		if(!self::$instance) self::$instance = new self();
 		return self::$instance;
+	}
+	
+	public static function getVersion()
+	{
+		return self::$version;
 	}
 	
 	function setDebug($status)
