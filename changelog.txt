@@ -1,0 +1,12 @@
+#Version 1.2.1
+-Update Server Added
+
+#Version 1.2.0
+- API::redirect() fixed
+- DB:Fetch query fixed on empty resource
+
+#Version 1.1
+- Major Bugs Fixe
+
+#Version 1.0
+-First Release
