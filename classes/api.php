@@ -103,8 +103,8 @@ class WOAAPI{
 		else
 		{
 			@header('Location:'.$url);
+			exit();
 		}
-		exit();
 	}
 	
 	/*Current Page URL*/

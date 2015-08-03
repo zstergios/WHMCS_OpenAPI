@@ -198,6 +198,7 @@ class WOADB{
 	public function fetch_array($rs=null,$type ='MYSQL_ASSOC'){
 		if(!$rs) $rs=$this->last_query;
 		$result_type=($type==='MYSQL_ASSOC')?MYSQL_ASSOC:constant(strtoupper($type));
+		if($rs === FALSE) return false;
 		if($this->useMysqli)
 			return mysqli_fetch_array($rs,$result_type);
 		else
