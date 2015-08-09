@@ -226,7 +226,7 @@ class WOAAPI{
 		if(!is_array($this->whmcsconfig))
 		{
 			$this->whmcsconfig=array();
-			$rs=$this->db->query("SELECT * FROM tblconfiguration;");
+			$rs=$this->db->query("SELECT * FROM `tblconfiguration`;");
 			while ($data = $this->db->fetch_array($rs))
 			{
 				$this->whmcsconfig[$data["setting"]]=$data["value"];
@@ -243,7 +243,7 @@ class WOAAPI{
 		if(!count($this->moduleConfig) || !isset($this->moduleConfig[$module]))
 		{
 			
-			$this->db->query('SELECT setting,value FROM tbladdonmodules WHERE module="'.$module.'";');
+			$this->db->query('SELECT setting,value FROM `tbladdonmodules` WHERE module="'.$module.'";');
 			$this->moduleConfig[$module]=array();
 			while($row=$this->db->fetch_array())
 			{
@@ -256,7 +256,7 @@ class WOAAPI{
 	
 	public function setModuleParams($name,$value='',$module)
 	{
-		$this->db->query('UPDATE `tbladdonmodules` SET value="'.$this->db->safe($value).'" WHERE setting="'.$name.'" AND module="'.$module.'";');
+		$this->db->query('UPDATE `tbladdonmodules` SET value="'.$this->db->safe($value).'" WHERE setting="'.$this->db->safe($name).'" AND module="'.$this->db->safe($module).'";');
 		$this->moduleConfig[$module][$name]=$value;
 	}
 	
@@ -308,7 +308,8 @@ class WOAAPI{
 		$prepare.="Content-Type: text/plain; charset=\"".$charset."\"".$eol;
 		$prepare.="Content-Transfer-Encoding: base64".$eol.$eol;
 		$prepare.=chunk_split(base64_encode($plainbody)).$eol.$eol;
-		if($AllowHTML){
+		if($AllowHTML)
+		{
 			$prepare.="--".$this->emailHash.$eol;
 			$prepare.="Content-Type: text/html; charset=\"".$charset."\"".$eol;
 			$prepare.="Content-Transfer-Encoding: base64".$eol.$eol;
@@ -328,14 +329,14 @@ class WOAAPI{
 		$this->timeout=(int)$timeout;
 	}
 	
-	function getRemoteData($url,$fields=null,$headers=array(),$method='GET'){
-		
+	function getRemoteData($url,$fields=null,$headers=array(),$method='GET')
+	{
 		//Prepare Variables
 		$url=trim($url);
 		$values=array('response'=>null,'error'=>null);
 		$method=strtoupper($method);
 		$fields=($fields!==null && is_array($fields))?http_build_query($fields):$fields;
-		$user_agent=(!empty($_SERVER['HTTP_USER_AGENT']))?$_SERVER['HTTP_USER_AGENT']:'OpenWHMCSAPI-'.rand(10,99);
+		$user_agent=(!empty($_SERVER['HTTP_USER_AGENT']))?$_SERVER['HTTP_USER_AGENT']:'OpenWHMCSAPI-'.self::$version;
 		
 		if(function_exists('curl_init')) 
 		{
@@ -368,12 +369,16 @@ class WOAAPI{
 		}
 		elseif(function_exists('file_get_contents') || empty($values["response"]))
 		{
-			if($method=='POST'){
+			if($method=='POST')
+			{
 				if(!count($headers)) $headers[]='Content-type: application/x-www-form-urlencoded'; //default
 				$params = array('http' => array('method' => 'POST','content' => $fields,'follow_location'=>1,'timeout'=>$this->timeout));
-			}else{
+			}
+			else
+			{
 				$params = array('http' => array('method' => 'GET','follow_location' =>1,'timeout'=>$this->timeout));
 			}
+			
 			$headers[]='User-agent: '.$user_agent;
 			if (count($headers)>0)	$params['http']['header'] = implode("\r\n",$headers);
 			$ctx=@stream_context_create($params);
@@ -381,11 +386,15 @@ class WOAAPI{
 			
 			if($contents!==false){
 				$values["response"]=trim($contents);
-			}else{
+			}
+			else
+			{
 				$errr=error_get_last();
 				$values["error"]="file_get_contents() error ".$errr['message'];
 			}
-		}else{
+		}
+		else
+		{
 			$values["error"]='Error';
 		}
 		return $values;
@@ -398,7 +407,8 @@ class WOAAPI{
 		echo $data;
 	}
 	
-	public function dump($var){
+	public function dump($var)
+	{
 		ob_start();
 		var_dump($var);
 		return ob_get_clean();
