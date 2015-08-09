@@ -1,7 +1,7 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     1.2
+ * @version     1.2.3
  * @author      Stergios Zgouletas <info@web-expert.gr>
  * @link        http://www.web-expert.gr
  * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
@@ -10,7 +10,7 @@
 if(!defined("WHMCS")) die("This file cannot be accessed directly");
 
 class WOAAPI{
-	private static $version='1.2.2';
+	private static $version='1.2.3';
 	protected $debug=false;
 	protected $moduleConfig=array();
 	protected $whmcsconfig=null;
@@ -18,6 +18,7 @@ class WOAAPI{
 	protected $updateServers=array();
 	private static $instance;
 	protected $db=null;
+	protected $emailHash=null;
 	
 	function __construct()
 	{
@@ -146,15 +147,15 @@ class WOAAPI{
 	}
 	
 	//File/Folder Functions
-	public function getFiles($dir,$ext=array())
+	public function getFiles($folderPath,$ext=array())
 	{
-		$dir=rtrim($dir,DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
-		if(!is_dir($dir)) return array();
+		$folderPath=rtrim($folderPath,DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
+		if(!is_dir($folderPath)) return array();
 		$files=array();
-		$results = scandir($dir);
+		$results = scandir($folderPath);
 		foreach ($results as $file)
 		{
-			if ($file === '.' || $file === '..' || !is_file($dir.$file)) continue;
+			if ($file === '.' || $file === '..' || !is_file($folderPath.$file)) continue;
 			$extension=@end(@explode(".",$file,2));
 			$filename=str_replace('.'.$extension,'',$file);
 			if(count($ext)>0 && !in_array(".".$extension,$ext)) continue;
@@ -163,10 +164,12 @@ class WOAAPI{
 		return $files;
 	}
 	
-	public function getFolders($dir)
+	public function getFolders($folderPath)
 	{
+		if(!is_dir($folderPath)) return array();
+		
 		$folders=array();
-		foreach (new DirectoryIterator($dir) as $file)
+		foreach (new DirectoryIterator($folderPath) as $file)
 		{
 			if($file->isDot()) continue;
 			if($file->isDir()) $folders[]=$file->getFilename();
@@ -174,11 +177,14 @@ class WOAAPI{
 		return $folders;
 	}
 	
-	//Delete Folder with Files
-	public function deleteFolder($folder)
+	//Delete Folder with all files
+	//Returns true|false
+	public function deleteFolder($folderPath)
 	{
-		if(!is_dir($folder)) return false;
-	 	$files = glob($folder.'/*'); // get all file names
+		$folderPath=rtrim($folderPath,DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
+		if(!is_dir($folderPath)) return false;
+		
+	 	$files = glob($folderPath.'*'); // get all file names
 		if(count($files))
 		{
 			foreach($files as $file)
@@ -248,10 +254,10 @@ class WOAAPI{
 		return $this->moduleConfig[$module];
 	}
 	
-	public function setModuleParams($name,$value='',$module='')
+	public function setModuleParams($name,$value='',$module)
 	{
 		$this->db->query('UPDATE `tbladdonmodules` SET value="'.$this->db->safe($value).'" WHERE setting="'.$name.'" AND module="'.$module.'";');
-		$this->moduleConfig[$name]=$value;
+		$this->moduleConfig[$module][$name]=$value;
 	}
 	
 	public function logActivity($logtxt='',$module='openAPI')
@@ -265,7 +271,13 @@ class WOAAPI{
 		return preg_replace("/($needle)/i",sprintf('<span style="color:%s;">$1</span>',$color),$haystack);
 	}
 	
-	public function sendEmail($to,$subject,$body,$frommail='',$fromname='WHMCS System',$AllowHTML=true,$charset="utf-8")
+	//Set Email Hash | String
+	function setEmailHash($emailHash)
+	{
+		$this->emailHash=$emailHash;
+	}
+	
+	public function sendEmail($to,$subject,$body,$frommail='',$fromname='WHMCS System',$AllowHTML=true,$charset="utf-8",$extraHeaders='')
 	{
 		if(empty($to) || strpos($to,"@")===false ) return false;
 		$whmcs=$this->getWhmcsConfig();
@@ -274,48 +286,56 @@ class WOAAPI{
 			$frommail=trim($whmcs["SystemEmailsFromEmail"]);
 			$fromname=trim($whmcs["SystemEmailsFromName"]);
 		}
-		
-		$random_hash = md5(date('r', time()));
 		$plainbody= strip_tags(preg_replace("/<br(.*)>/iU", "\n", $body));
-		$body='<style type="text/css">'.$whmcs['EmailCSS'].'</style><p><a href="'.$whmcs['SystemURL'].'"><img src="'.$whmcs['LogoURL'].'" border="0" /></a></p>'.$body;
 		
-		$headers  = "From: ".$fromname." <".$frommail.">\r\n";
-		$headers .= "Reply-To: ". $frommail . "\r\n";
-		$headers .= 'MIME-Version: 1.0' . "\r\n";
-		$headers .= "Content-Type: multipart/alternative; boundary=\"OpenAPIInterface-".$random_hash."\"";
+		if(is_null($this->emailHash)) $this->emailHash = "OpenAPIInterface_".md5(time());
+		$eol = PHP_EOL;
 		
-		#UTF-8
-		if(function_exists('mb_detect_encoding')){
-			if(mb_detect_encoding($plainbody)!=strtoupper($charset)) $plainbody=@iconv(mb_detect_encoding($plainbody),$charset,$plainbody); 
-			if(mb_detect_encoding($body)!=strtoupper($charset))	$body=@iconv(mb_detect_encoding($body),$charset,$body); #html
+		$headers  = "From: ".$fromname." <".$frommail.">".$eol;
+		$headers .= "Reply-To: ". $frommail.$eol;
+		$headers .= 'MIME-Version: 1.0' .$eol;
+		$headers .= "Content-Type: multipart/mixed; boundary=\"".$this->emailHash."\"".$eol.$eol;
+		
+		#Multi-Language Support
+		if(function_exists('iconv') && function_exists('mb_detect_encoding') && mb_detect_encoding($plainbody)!=strtoupper($charset)){
+			$plainbody=@iconv(mb_detect_encoding($plainbody),$charset,$plainbody); //plain
+			$body=@iconv(mb_detect_encoding($body),$charset,$body); #html
 		}
 		
-		$prepare="--OpenAPIInterface-".$random_hash."\n";
-		$prepare.="Content-Type: text/plain; charset=\"".$charset."\"";
-		$prepare.="\nContent-Transfer-Encoding: base64\n";
-		$prepare.="\n".chunk_split(base64_encode($plainbody))."\n";
-		if($AllowHTML)
-		{
-			$prepare.="--OpenAPIInterface-".$random_hash."\n";
-			$prepare.="Content-Type: text/html; charset=\"".$charset."\"";
-			$prepare.="\nContent-Transfer-Encoding: base64\n";
-			$prepare.="\n".chunk_split(base64_encode($body))."\n";
+		$prepare="--".$this->emailHash.$eol;
+		$prepare.="Content-Type: multipart/alternative; boundary=\"".$this->emailHash."\"".$eol.$eol;
+		$prepare.="--".$this->emailHash.$eol;
+		$prepare.="Content-Type: text/plain; charset=\"".$charset."\"".$eol;
+		$prepare.="Content-Transfer-Encoding: base64".$eol.$eol;
+		$prepare.=chunk_split(base64_encode($plainbody)).$eol.$eol;
+		if($AllowHTML){
+			$prepare.="--".$this->emailHash.$eol;
+			$prepare.="Content-Type: text/html; charset=\"".$charset."\"".$eol;
+			$prepare.="Content-Transfer-Encoding: base64".$eol.$eol;
+			$prepare.=chunk_split(base64_encode($body)).$eol.$eol;
 		}
-		$prepare.="--OpenAPIInterface-".$random_hash."--";
+		$prepare.="--".$this->emailHash."--";
 		ob_start(); //Turn on output buffering
 		echo $prepare;
-		$message = ob_get_contents();
-		ob_end_clean();
-		return @mail( $to, stripslashes($subject), $message, $headers );
+		$message = ob_get_clean();
+		
+		return @mail($to,stripslashes($subject),$message,$headers.str_replace('{EMAILHASH}',$this->emailHash,$extraHeaders));
+	}
+	
+	//Set Connection Timeout | int
+	function setTimeout($timeout)
+	{
+		$this->timeout=(int)$timeout;
 	}
 	
 	function getRemoteData($url,$fields=null,$headers=array(),$method='GET'){
+		
+		//Prepare Variables
 		$url=trim($url);
 		$values=array('response'=>null,'error'=>null);
-		
+		$method=strtoupper($method);
 		$fields=($fields!==null && is_array($fields))?http_build_query($fields):$fields;
 		$user_agent=(!empty($_SERVER['HTTP_USER_AGENT']))?$_SERVER['HTTP_USER_AGENT']:'OpenWHMCSAPI-'.rand(10,99);
-		$method=strtoupper($method);
 		
 		if(function_exists('curl_init')) 
 		{
@@ -362,10 +382,11 @@ class WOAAPI{
 			if($contents!==false){
 				$values["response"]=trim($contents);
 			}else{
-				$values["error"]="file_get_contents() error ". error_get_last();
+				$errr=error_get_last();
+				$values["error"]="file_get_contents() error ".$errr['message'];
 			}
 		}else{
-			$values["error"]=array('error'=>'Error');
+			$values["error"]='Error';
 		}
 		return $values;
 	}

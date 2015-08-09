@@ -36,18 +36,23 @@ function openAPI_output($vars) {
 	require_once('init.php');
 	$api=WOAAPI::getInstance();
 	$data=$api->checkUpdate($vars['version'],'openAPI');
-	if(empty($data['error'])){
+	if(empty($data['error']))
+	{
 		$data=explode(';',$data['response']);
 		$info=array();
-		foreach($data as $p){
+		foreach($data as $p)
+		{
 			if(empty($p)) continue;
 			list($key,$value)=explode('=',$p);
 			$info[trim($key)]=trim($value);
 		}
+		
 		echo '<p>Your Version is:'.$vars['version'].'</p>';
 		echo '<p>Latest Version is:'.$info['version'].' Released: '.$info['released'].'</p>';
 		echo '<p>ChangeLog: <a target="_blank" href="'.$info['changelog-url'].'"> View changes</a></p>';
-		if(version_compare($vars['version'],$info['version'],'eq')){
+		
+		if(version_compare($vars['version'],$info['version'],'eq'))
+		{
 			echo '<p class="alert alert-success">Well done, you have installed the latest version!</p>';
 		}
 		else

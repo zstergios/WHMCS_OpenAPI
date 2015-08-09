@@ -1,3 +1,8 @@
+#Version 1.2.3
+-E-mail Hash
+-SetEmailHash() & setTimout() functions
+-setConfig fucntion fixed
+
 #Version 1.2.2
 -Addon Module now checks for update
 -WOAPI::getVersion() new function
