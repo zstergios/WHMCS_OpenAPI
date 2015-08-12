@@ -1,7 +1,7 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     1.2.3
+ * @version     1.3
  * @author      Stergios Zgouletas <info@web-expert.gr>
  * @link        http://www.web-expert.gr
  * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
@@ -11,14 +11,13 @@ if(!defined("WHMCS")) die("This file cannot be accessed directly");
 
 class WOAAPI{
 	private static $instance;
-	private static $version='1.2.3';
+	private static $version='1.3';
 	protected $debug=false;
 	protected $db=null;
 	protected $moduleConfig=array();
 	protected $whmcsconfig=null;
 	protected $updateServers=array();
 	protected $timeout=30;
-	protected $emailHash=null;
 	
 	function __construct()
 	{
@@ -38,18 +37,6 @@ class WOAAPI{
 	public static function getVersion()
 	{
 		return self::$version;
-	}
-	
-	function setDebug($status)
-	{
-		$this->debug=(boolean)$status;
-	}
-	
-	public function microtime_float()
-	{
-		list ($msec, $sec) = @explode(' ', microtime());
-		$microtime = (float)$msec + (float)$sec;
-		return $microtime;
 	}
 	
 	public function getLang($key,$language=null)
@@ -192,7 +179,7 @@ class WOAAPI{
 			  if(is_file($file)) unlink($file); // delete file
 			}
 		}
-		return rmdir($folder);
+		return rmdir($folderPath);
 	}
 	
 	/*Array Functions*/
@@ -232,6 +219,10 @@ class WOAAPI{
 				$this->whmcsconfig[$data["setting"]]=$data["value"];
 			}
 		}
+		
+		$this->whmcsconfig['SystemSSLURL']=rtrim($this->whmcsconfig['SystemSSLURL'],'/').'/';
+		$this->whmcsconfig['SystemURL']=rtrim($this->whmcsconfig['SystemURL'],'/').'/';
+		
 		if(!empty($key) && $key=='SystemSSLURL' && empty($this->whmcsconfig[$key])) $key='SystemURL';
 		if(!empty($key) && is_array($this->whmcsconfig) && isset($this->whmcsconfig[$key])) return $this->whmcsconfig[$key];
 		return $this->whmcsconfig;
@@ -240,7 +231,7 @@ class WOAAPI{
 	#Get Addon Config
 	public function getModuleParams($key=null,$module)
 	{
-		if(!count($this->moduleConfig) || !isset($this->moduleConfig[$module]))
+		if(!isset($this->moduleConfig[$module]) || !count($this->moduleConfig[$module]))
 		{
 			
 			$this->db->query('SELECT setting,value FROM `tbladdonmodules` WHERE module="'.$module.'";');
@@ -271,30 +262,19 @@ class WOAAPI{
 		return preg_replace("/($needle)/i",sprintf('<span style="color:%s;">$1</span>',$color),$haystack);
 	}
 	
-	//Set Email Hash | String
-	function setEmailHash($emailHash)
+	public function sendEmail($to,$subject,$body,$frommail='',$fromname='WHMCS System',$AllowHTML=true,$charset="utf-8",$files=array())
 	{
-		$this->emailHash=$emailHash;
-	}
-	
-	public function sendEmail($to,$subject,$body,$frommail='',$fromname='WHMCS System',$AllowHTML=true,$charset="utf-8",$extraHeaders='')
-	{
-		if(empty($to) || strpos($to,"@")===false ) return false;
+		if(empty($to) || $this->strpos($to,"@")===false) return false;
+		require_once(ROOTDIR.'/includes/classes/PHPMailer/PHPMailerAutoload.php');
+		
 		$whmcs=$this->getWhmcsConfig();
-		if($charset!="utf-8") $charset=$whmcs["Charset"];
 		if($frommail==''){
 			$frommail=trim($whmcs["SystemEmailsFromEmail"]);
 			$fromname=trim($whmcs["SystemEmailsFromName"]);
 		}
-		$plainbody= strip_tags(preg_replace("/<br(.*)>/iU", "\n", $body));
 		
-		if(is_null($this->emailHash)) $this->emailHash = "OpenAPIInterface_".md5(time());
-		$eol = PHP_EOL;
-		
-		$headers  = "From: ".$fromname." <".$frommail.">".$eol;
-		$headers .= "Reply-To: ". $frommail.$eol;
-		$headers .= 'MIME-Version: 1.0' .$eol;
-		$headers .= "Content-Type: multipart/mixed; boundary=\"".$this->emailHash."\"".$eol.$eol;
+		$plainbody=preg_replace("/<\/p>/iU", "\n", $body);
+		$plainbody= strip_tags(preg_replace("/<br(.*)>/iU", "\n", $plainbody));
 		
 		#Multi-Language Support
 		if(function_exists('iconv') && function_exists('mb_detect_encoding') && mb_detect_encoding($plainbody)!=strtoupper($charset)){
@@ -302,25 +282,23 @@ class WOAAPI{
 			$body=@iconv(mb_detect_encoding($body),$charset,$body); #html
 		}
 		
-		$prepare="--".$this->emailHash.$eol;
-		$prepare.="Content-Type: multipart/alternative; boundary=\"".$this->emailHash."\"".$eol.$eol;
-		$prepare.="--".$this->emailHash.$eol;
-		$prepare.="Content-Type: text/plain; charset=\"".$charset."\"".$eol;
-		$prepare.="Content-Transfer-Encoding: base64".$eol.$eol;
-		$prepare.=chunk_split(base64_encode($plainbody)).$eol.$eol;
-		if($AllowHTML)
-		{
-			$prepare.="--".$this->emailHash.$eol;
-			$prepare.="Content-Type: text/html; charset=\"".$charset."\"".$eol;
-			$prepare.="Content-Transfer-Encoding: base64".$eol.$eol;
-			$prepare.=chunk_split(base64_encode($body)).$eol.$eol;
-		}
-		$prepare.="--".$this->emailHash."--";
-		ob_start(); //Turn on output buffering
-		echo $prepare;
-		$message = ob_get_clean();
+		$mail = new PHPMailer;
+		$mail->CharSet=$charset;
+		$mail->setFrom($frommail,$fromname);
+		$mail->addAddress($to,'');
+		$mail->Subject = $subject;
+		if($AllowHTML) $mail->msgHTML($body);
+		$mail->AltBody =$plainbody;
 		
-		return @mail($to,stripslashes($subject),$message,$headers.str_replace('{EMAILHASH}',$this->emailHash,$extraHeaders));
+		if(count($files)>0){
+			foreach($files as $file){
+				if(file_exists($file) && filesize($file)>0){
+					$mail->addAttachment($file);
+				}
+			}
+		}
+		
+		return array('send'=>$mail->send(),'error'=>$mail->ErrorInfo);
 	}
 	
 	//Set Connection Timeout | int
@@ -412,5 +390,17 @@ class WOAAPI{
 		ob_start();
 		var_dump($var);
 		return ob_get_clean();
+	}
+	
+	function setDebug($status)
+	{
+		$this->debug=(boolean)$status;
+	}
+	
+	public function microtime_float()
+	{
+		list ($msec, $sec) = @explode(' ', microtime());
+		$microtime = (float)$msec + (float)$sec;
+		return $microtime;
 	}
 }
