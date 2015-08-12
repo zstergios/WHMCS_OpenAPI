@@ -273,8 +273,8 @@ class WOAAPI{
 			$fromname=trim($whmcs["SystemEmailsFromName"]);
 		}
 		
-		$plainbody=preg_replace("/<\/p>/iU", "\n", $body);
-		$plainbody= strip_tags(preg_replace("/<br(.*)>/iU", "\n", $plainbody));
+		
+		$plainbody= strip_tags(preg_replace("/<br(.*)>|<newline>/iU", "\n", str_replace("</p>","</p><newline>", $body)) );
 		
 		#Multi-Language Support
 		if(function_exists('iconv') && function_exists('mb_detect_encoding') && mb_detect_encoding($plainbody)!=strtoupper($charset)){
