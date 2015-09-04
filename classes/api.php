@@ -1,7 +1,7 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     1.3
+ * @version     1.4
  * @author      Stergios Zgouletas <info@web-expert.gr>
  * @link        http://www.web-expert.gr
  * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
@@ -11,13 +11,14 @@ if(!defined("WHMCS")) die("This file cannot be accessed directly");
 
 class WOAAPI{
 	private static $instance;
-	private static $version='1.3';
+	private static $version='1.4';
 	protected $debug=false;
 	protected $db=null;
 	protected $moduleConfig=array();
 	protected $whmcsconfig=null;
 	protected $updateServers=array();
 	protected $timeout=30;
+	protected $languages=array();
 	
 	function __construct()
 	{
@@ -39,12 +40,26 @@ class WOAAPI{
 		return self::$version;
 	}
 	
-	public function getLang($key,$language=null)
+	public function getLang($key)
 	{
 		global $_LANG;
-		$languageTxt=isset($_LANG[$key])?$_LANG[$key]:'';
+		$languageTxt=isset($_LANG[$key])?$_LANG[$key]:$key;
 		if($this->debug && empty($languageTxt)) $languageTxt='*'.$key.'*';
 		return $languageTxt;
+	}
+	
+	public function getAddonLang($language='',$module)
+	{
+		if(empty($language) && isset($_SESSION['Language'])) $language=$_SESSION['Language'];
+		if(empty($language)) $language='english';
+		
+		if(isset($this->languages[$module][$language]) && count($this->languages[$module][$language])) return $this->languages[$module][$language];
+		$languagePath=ROOTDIR.'/modules/addons/'.$module.'/lang/';
+		
+		$languagePath=file_exists($languagePath))?$languagePath.strtolower($language).'.php':$languagePath.'english.php';
+		require($languagePath);
+		$this->languages[$module][$language]=$_ADDONLANG;
+		return $this->languages[$module][$language]
 	}
 	
 	public function getUpdateServer($module)
@@ -116,20 +131,20 @@ class WOAAPI{
 	################################################
 	function strpos($str,$needle,$offset=0)
 	{
-		return (function_exists('mb_strpos'))?mb_strpos($str,$needle,$offset):substr($str,$needle,$offset);
+		return function_exists('mb_strpos')?mb_strpos($str,$needle,$offset):substr($str,$needle,$offset);
 	}
 	
 	function substr($str,$i=null,$j=null)
 	{
-		return (function_exists('mb_substr'))?mb_substr($str,$i,$j):substr($str,$i,$j);
+		return function_exists('mb_substr')?mb_substr($str,$i,$j):substr($str,$i,$j);
 	}
 	
 	function strlen($str)
 	{
-		return (function_exists('mb_strlen'))?mb_strlen($str):strlen($str);
+		return function_exists('mb_strlen')?mb_strlen($str):strlen($str);
 	}
 	
-	function cfirst($str){
+	function ucfirst($str){
 		return ucfirst(strtolower($str));
 	}
 	
@@ -316,14 +331,22 @@ class WOAAPI{
 		$fields=($fields!==null && is_array($fields))?http_build_query($fields):$fields;
 		$user_agent=(!empty($_SERVER['HTTP_USER_AGENT']))?$_SERVER['HTTP_USER_AGENT']:'OpenWHMCSAPI-'.self::$version;
 		
+		$port=(int)parse_url($url, PHP_URL_PORT);
+		
 		if(function_exists('curl_init')) 
 		{
 			$ch = curl_init();
+			
+			if($port>80){
+				curl_setopt ( $ch, CURLOPT_PORT, $port );
+				$url=str_replace(":".$port,'',$url);
+			}
 			curl_setopt($ch, CURLOPT_URL, $url );
 			if($method=='POST'){				
 				curl_setopt($ch, CURLOPT_POST,1);
 				curl_setopt($ch, CURLOPT_POSTFIELDS,$fields);
 			}
+			
 			curl_setopt($ch, CURLOPT_HEADER, 0);
 			curl_setopt($ch, CURLOPT_USERAGENT,$user_agent);
 			if ((ini_get('open_basedir')!==false && (int)ini_get('open_basedir')==1) && (ini_get('safe_mode')!==false && (int)ini_get('safe_mode')==1)){

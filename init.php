@@ -1,7 +1,7 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     1.2
+ * @version     1.3
  * @author      Stergios Zgouletas <info@web-expert.gr>
  * @link        http://www.web-expert.gr
  * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
@@ -19,7 +19,7 @@ if(!defined('WHMCS'))
 	{
 		require_once($whmcsRoot."dbconnect.php");
 		require_once($whmcsRoot."includes/functions.php");
-		require_once($whmcsRoot."includes/clientareafunctions.php");
+		if(defined("CLIENTAREA")) require_once($whmcsRoot."includes/clientareafunctions.php");
 	}
 }
 $classPath=dirname(__FILE__).DIRECTORY_SEPARATOR."classes".DIRECTORY_SEPARATOR;

@@ -1,3 +1,7 @@
+#Version 1.4
+-getAddonLanguage() added
+-getLang() 2nd parameter removed
+
 #Version 1.3
 -SetEmailHash() Removed
 -sendEmail PHPMailer compatible
