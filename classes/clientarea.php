@@ -1,7 +1,7 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     1.4
+ * @version     1.5
  * @author      Stergios Zgouletas <info@web-expert.gr>
  * @link        http://www.web-expert.gr
  * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
@@ -23,9 +23,8 @@ class WOAClientarea{
 		}
 	}
 	
-	public function initialize($pagetitle=null){
+	public function initialize(){
 		$api=WOAAPI::getInstance();
-		$this->setPageTitle($pagetitle);		
 		if (version_compare(WHMCSV, '5.2.0') >= 0) {
 			$this->ca = new WHMCS_ClientArea();
 			$this->ca->setPageTitle($api->getLang($this->pagetitle));

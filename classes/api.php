@@ -1,7 +1,7 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     1.4
+ * @version     1.5
  * @author      Stergios Zgouletas <info@web-expert.gr>
  * @link        http://www.web-expert.gr
  * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
@@ -11,7 +11,7 @@ if(!defined("WHMCS")) die("This file cannot be accessed directly");
 
 class WOAAPI{
 	private static $instance;
-	private static $version='1.4';
+	private static $version='1.5';
 	protected $debug=false;
 	protected $db=null;
 	protected $moduleConfig=array();
@@ -56,10 +56,10 @@ class WOAAPI{
 		if(isset($this->languages[$module][$language]) && count($this->languages[$module][$language])) return $this->languages[$module][$language];
 		$languagePath=ROOTDIR.'/modules/addons/'.$module.'/lang/';
 		
-		$languagePath=file_exists($languagePath))?$languagePath.strtolower($language).'.php':$languagePath.'english.php';
+		$languagePath=file_exists($languagePath)?$languagePath.strtolower($language).'.php':$languagePath.'english.php';
 		require($languagePath);
 		$this->languages[$module][$language]=$_ADDONLANG;
-		return $this->languages[$module][$language]
+		return $this->languages[$module][$language];
 	}
 	
 	public function getUpdateServer($module)
