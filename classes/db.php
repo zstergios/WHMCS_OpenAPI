@@ -1,7 +1,7 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     1.5
+ * @version     1.7
  * @author      Stergios Zgouletas <info@web-expert.gr>
  * @link        http://www.web-expert.gr
  * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
@@ -187,6 +187,12 @@ class WOADB{
 	//Get query
 	public function getSQL(){
 		return $this->sql_query;
+	}
+	
+	//Single column
+	public function getValue($q){
+		$data=$this->fetch_array($this->query($q),'MYSQL_NUM');
+		return $data[0];
 	}
 	
 	//Get Single Row

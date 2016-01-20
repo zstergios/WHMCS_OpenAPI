@@ -1,19 +1,28 @@
+#Version 1.7
+-WOAAPI::getAddonLanguage() override fix & 3rd parameter added fall back
+-WOADB:getValue add to retrive single result
+-WOAFORM:pagination() added
+
+#Version 1.6
+-WOAAPI::getAddonLanguage() fix & override support
+-Fixes & Improvements
+
 #Version 1.5
 -WOAPI fatal error fixed
--WOFORM:intallize() parameter removed
+-WOAClientarea:initialize() parameter removed
 
 #Version 1.4
--getAddonLanguage() added
--getLang() 2nd parameter removed
+-WOAAPI::getAddonLanguage() added
+-WOAAPI::getLang() 2nd parameter removed
 
 #Version 1.3
--SetEmailHash() Removed
--sendEmail PHPMailer compatible
+-WOAAPI::SetEmailHash() Removed
+-WOAAPI::sendEmail PHPMailer compatible
 
 #Version 1.2.3
--E-mail Hash
--SetEmailHash() & setTimout() functions
--setConfig fucntion fixed
+-WOAAPI::E-mail Hash
+-WOAAPI::SetEmailHash() & setTimout() functions
+-WOAAPI::setConfig fucntion fixed
 
 #Version 1.2.2
 -Addon Module now checks for update
@@ -28,7 +37,7 @@
 - WOADB:Fetch query fixed on empty resource
 
 #Version 1.1
-- Major Bugs Fixe
+- Major Bugs Fixes
 
 #Version 1.0
 -First Release

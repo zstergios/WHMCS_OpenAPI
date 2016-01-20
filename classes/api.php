@@ -1,7 +1,7 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     1.5
+ * @version     1.7
  * @author      Stergios Zgouletas <info@web-expert.gr>
  * @link        http://www.web-expert.gr
  * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
@@ -11,7 +11,7 @@ if(!defined("WHMCS")) die("This file cannot be accessed directly");
 
 class WOAAPI{
 	private static $instance;
-	private static $version='1.5';
+	private static $version='1.7';
 	protected $debug=false;
 	protected $db=null;
 	protected $moduleConfig=array();
@@ -48,17 +48,34 @@ class WOAAPI{
 		return $languageTxt;
 	}
 	
-	public function getAddonLang($language='',$module)
+	public function getAddonLang($language='',$module,$fallback=true)
 	{
 		if(empty($language) && isset($_SESSION['Language'])) $language=$_SESSION['Language'];
 		if(empty($language)) $language='english';
-		
+		$language=strtolower($language);
+		//If isalready loaded return strings	
 		if(isset($this->languages[$module][$language]) && count($this->languages[$module][$language])) return $this->languages[$module][$language];
-		$languagePath=ROOTDIR.'/modules/addons/'.$module.'/lang/';
 		
-		$languagePath=file_exists($languagePath)?$languagePath.strtolower($language).'.php':$languagePath.'english.php';
-		require($languagePath);
+		//Load basic language files
+		$languagePath=ROOTDIR.'/modules/addons/'.$module.'/lang/';
+		$loadLanguage=file_exists($languagePath.$language.'.php')?$languagePath.$language.'.php':$languagePath.'english.php';
+		require($loadLanguage);
 		$this->languages[$module][$language]=$_ADDONLANG;
+		
+		//Overrides
+		$languagePathOverride=ROOTDIR.'/modules/addons/'.$module.'/lang/overrides/';
+		if(file_exists($languagePathOverride.$language.'.php')){
+			$_ADDONLANG=array();
+			require($languagePathOverride.$language.'.php');
+			if(count($_ADDONLANG)) $this->languages[$module][$language]=array_merge($this->languages[$module][$language],$_ADDONLANG);
+		}
+		
+		//fallback
+		if($fallback && $language!='english'){
+			$defaultLanguage=isset($this->languages[$module]['english'])? $this->languages[$module]['english'] : $this->getAddonLang('english',$module,false);
+			$this->languages[$module][$language]=array_merge($defaultLanguage,$this->languages[$module][$language]);
+		}
+		
 		return $this->languages[$module][$language];
 	}
 	
@@ -131,7 +148,7 @@ class WOAAPI{
 	################################################
 	function strpos($str,$needle,$offset=0)
 	{
-		return function_exists('mb_strpos')?mb_strpos($str,$needle,$offset):substr($str,$needle,$offset);
+		return function_exists('mb_strpos')?mb_strpos($str,$needle,$offset):strpos($str,$needle,$offset);
 	}
 	
 	function substr($str,$i=null,$j=null)
@@ -279,16 +296,19 @@ class WOAAPI{
 	
 	public function sendEmail($to,$subject,$body,$frommail='',$fromname='WHMCS System',$AllowHTML=true,$charset="utf-8",$files=array())
 	{
-		if(empty($to) || $this->strpos($to,"@")===false) return false;
-		require_once(ROOTDIR.'/includes/classes/PHPMailer/PHPMailerAutoload.php');
+		if(empty($to) || $this->strpos($to,'@')===false) return false;
+		if(file_exists(ROOTDIR.'/includes/classes/PHPMailer/PHPMailerAutoload.php')){
+			require_once(ROOTDIR.'/includes/classes/PHPMailer/PHPMailerAutoload.php');
+		}else{
+			require_once(ROOTDIR.'/vendor/phpmailer/phpmailer/PHPMailerAutoload.php');
+		}
 		
 		$whmcs=$this->getWhmcsConfig();
 		if($frommail==''){
 			$frommail=trim($whmcs["SystemEmailsFromEmail"]);
 			$fromname=trim($whmcs["SystemEmailsFromName"]);
 		}
-		
-		
+				
 		$plainbody= strip_tags(preg_replace("/<br(.*)>|<newline>/iU", "\n", str_replace("</p>","</p><newline>", $body)) );
 		
 		#Multi-Language Support
@@ -297,10 +317,11 @@ class WOAAPI{
 			$body=@iconv(mb_detect_encoding($body),$charset,$body); #html
 		}
 		
+		$emails=@explode(',',$to);
 		$mail = new PHPMailer;
 		$mail->CharSet=$charset;
 		$mail->setFrom($frommail,$fromname);
-		$mail->addAddress($to,'');
+		foreach($emails as $email) $mail->addAddress($email,'');
 		$mail->Subject = $subject;
 		if($AllowHTML) $mail->msgHTML($body);
 		$mail->AltBody =$plainbody;

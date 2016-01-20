@@ -1,7 +1,7 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     1.5
+ * @version     1.7
  * @author      Stergios Zgouletas <info@web-expert.gr>
  * @link        http://www.web-expert.gr
  * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
@@ -9,9 +9,8 @@
 **/
 
 if(!defined("WHMCS")) die("This file cannot be accessed directly");
-
 function openAPI_config() {
-	require_once('init.php');
+	require('init.php');
 	$configarray = array
 	(
 		"name" => "WHMCS OpenAPI (WOA)",
@@ -33,7 +32,7 @@ function openAPI_deactivate() {
 }
 
 function openAPI_output($vars) {
-	require_once('init.php');
+	require('init.php');
 	$api=WOAAPI::getInstance();
 	$data=$api->checkUpdate($vars['version'],'openAPI');
 	if(empty($data['error']))
