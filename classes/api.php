@@ -1,7 +1,7 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     1.7
+ * @version     1.8
  * @author      Stergios Zgouletas <info@web-expert.gr>
  * @link        http://www.web-expert.gr
  * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
@@ -9,9 +9,10 @@
 **/
 if(!defined("WHMCS")) die("This file cannot be accessed directly");
 
-class WOAAPI{
+class WOAAPI
+{
 	private static $instance;
-	private static $version='1.7';
+	private static $version='1.8';
 	protected $debug=false;
 	protected $db=null;
 	protected $moduleConfig=array();
@@ -19,6 +20,7 @@ class WOAAPI{
 	protected $updateServers=array();
 	protected $timeout=30;
 	protected $languages=array();
+	protected $countries=array('countries'=>array(),'callingCodes'=>array());
 	
 	function __construct()
 	{
@@ -44,7 +46,7 @@ class WOAAPI{
 	{
 		global $_LANG;
 		$languageTxt=isset($_LANG[$key])?$_LANG[$key]:$key;
-		if($this->debug && empty($languageTxt)) $languageTxt='*'.$key.'*';
+		if($this->debug && !isset($_LANG[$key])) $languageTxt='*'.$key.'*';
 		return $languageTxt;
 	}
 	
@@ -53,6 +55,7 @@ class WOAAPI{
 		if(empty($language) && isset($_SESSION['Language'])) $language=$_SESSION['Language'];
 		if(empty($language)) $language='english';
 		$language=strtolower($language);
+		
 		//If isalready loaded return strings	
 		if(isset($this->languages[$module][$language]) && count($this->languages[$module][$language])) return $this->languages[$module][$language];
 		
@@ -64,14 +67,16 @@ class WOAAPI{
 		
 		//Overrides
 		$languagePathOverride=ROOTDIR.'/modules/addons/'.$module.'/lang/overrides/';
-		if(file_exists($languagePathOverride.$language.'.php')){
+		if(file_exists($languagePathOverride.$language.'.php'))
+		{
 			$_ADDONLANG=array();
 			require($languagePathOverride.$language.'.php');
 			if(count($_ADDONLANG)) $this->languages[$module][$language]=array_merge($this->languages[$module][$language],$_ADDONLANG);
 		}
 		
 		//fallback
-		if($fallback && $language!='english'){
+		if($fallback && $language!='english')
+		{
 			$defaultLanguage=isset($this->languages[$module]['english'])? $this->languages[$module]['english'] : $this->getAddonLang('english',$module,false);
 			$this->languages[$module][$language]=array_merge($defaultLanguage,$this->languages[$module][$language]);
 		}
@@ -161,7 +166,8 @@ class WOAAPI{
 		return function_exists('mb_strlen')?mb_strlen($str):strlen($str);
 	}
 	
-	function ucfirst($str){
+	function ucfirst($str)
+	{
 		return ucfirst(strtolower($str));
 	}
 	
@@ -221,16 +227,38 @@ class WOAAPI{
 		return array_values($arr);
 	}
 	
+	public function getCountiesDetails()
+	{
+		if(version_compare(WHMCSV, '7.0.0') >= 0)
+		{
+			$data=json_encode(@file_get_contents(ROOTDIR.'/resources/country/dist.countries.json'),true);
+			foreach($data as $code=>$cdata)
+			{
+				$this->countries['countries'][$code]=$cdata['name'];
+				$this->countries['callingCodes'][$code]=$cdata['callingCode'];
+			}
+		}
+		else
+		{
+			require(ROOTDIR.'/includes/countries.php');
+			$this->countries['countries']=$countries;
+			require(ROOTDIR.'/includes/countriescallingcodes.php');
+			$this->countries['callingCodes']=$countrycallingcodes;
+		}
+		return $this->countries;
+	}
+	
+	
 	public function getCountries()
 	{
-		include(ROOTDIR.'/includes/countries.php');
-		return $countries;
+		$this->getCountiesDetails();
+		return $this->countries['countries'];
 	}
 
 	public function getCallingCodes()
 	{
-		include(ROOTDIR.'/includes/countriescallingcodes.php');
-		return $countrycallingcodes;
+		$this->getCountiesDetails();
+		return $this->countries['callingCodes'];
 	}
 	
 	#Get WHMCS Config
@@ -252,7 +280,7 @@ class WOAAPI{
 			}
 		}
 		
-		$this->whmcsconfig['SystemSSLURL']=rtrim($this->whmcsconfig['SystemSSLURL'],'/').'/';
+		if(!empty($this->whmcsconfig['SystemSSLURL'])) $this->whmcsconfig['SystemSSLURL']=rtrim($this->whmcsconfig['SystemSSLURL'],'/').'/';
 		$this->whmcsconfig['SystemURL']=rtrim($this->whmcsconfig['SystemURL'],'/').'/';
 		
 		if(!empty($key) && $key=='SystemSSLURL' && empty($this->whmcsconfig[$key])) $key='SystemURL';
@@ -266,7 +294,7 @@ class WOAAPI{
 		if(!isset($this->moduleConfig[$module]) || !count($this->moduleConfig[$module]))
 		{
 			
-			$this->db->query('SELECT setting,value FROM `tbladdonmodules` WHERE module="'.$module.'";');
+			$this->db->query('SELECT setting,value FROM `tbladdonmodules` WHERE module='.$this->db->quoteValue($module).';');
 			$this->moduleConfig[$module]=array();
 			while($row=$this->db->fetch_array())
 			{
@@ -279,7 +307,7 @@ class WOAAPI{
 	
 	public function setModuleParams($name,$value='',$module)
 	{
-		$this->db->query('UPDATE `tbladdonmodules` SET value="'.$this->db->safe($value).'" WHERE setting="'.$this->db->safe($name).'" AND module="'.$this->db->safe($module).'";');
+		$this->db->query('UPDATE `tbladdonmodules` SET value='.$this->db->quoteValue($value).' WHERE setting='.$this->db->quoteValue($name).' AND module='.$this->db->quoteValue($module).';');
 		$this->moduleConfig[$module][$name]=$value;
 	}
 	
@@ -294,46 +322,80 @@ class WOAAPI{
 		return preg_replace("/($needle)/i",sprintf('<span style="color:%s;">$1</span>',$color),$haystack);
 	}
 	
-	public function sendEmail($to,$subject,$body,$frommail='',$fromname='WHMCS System',$AllowHTML=true,$charset="utf-8",$files=array())
+	//SendTo Parameter can be string or array $sendTo=array('to'=>array(),'cc'=>array(),'bcc'=>array());
+	public function sendEmail($sendTo,$subject,$body,$frommail='',$fromname='WHMCS System',$AllowHTML=true,$charset="utf-8",$files=array())
 	{
-		if(empty($to) || $this->strpos($to,'@')===false) return false;
-		if(file_exists(ROOTDIR.'/includes/classes/PHPMailer/PHPMailerAutoload.php')){
+		if((is_array($sendTo) && !count($sendTo)) || (!is_array($sendTo) && (empty($to) || $this->strpos($to,'@')===false))) return false;
+		
+		if(file_exists(ROOTDIR.'/includes/classes/PHPMailer/PHPMailerAutoload.php'))
+		{
 			require_once(ROOTDIR.'/includes/classes/PHPMailer/PHPMailerAutoload.php');
-		}else{
+		}
+		else
+		{
 			require_once(ROOTDIR.'/vendor/phpmailer/phpmailer/PHPMailerAutoload.php');
 		}
 		
 		$whmcs=$this->getWhmcsConfig();
-		if($frommail==''){
+		if($frommail=='')
+		{
 			$frommail=trim($whmcs["SystemEmailsFromEmail"]);
 			$fromname=trim($whmcs["SystemEmailsFromName"]);
 		}
-				
+		
 		$plainbody= strip_tags(preg_replace("/<br(.*)>|<newline>/iU", "\n", str_replace("</p>","</p><newline>", $body)) );
 		
 		#Multi-Language Support
-		if(function_exists('iconv') && function_exists('mb_detect_encoding') && mb_detect_encoding($plainbody)!=strtoupper($charset)){
+		if(function_exists('iconv') && function_exists('mb_detect_encoding') && mb_detect_encoding($plainbody)!=strtoupper($charset))
+		{
 			$plainbody=@iconv(mb_detect_encoding($plainbody),$charset,$plainbody); //plain
 			$body=@iconv(mb_detect_encoding($body),$charset,$body); #html
 		}
 		
-		$emails=@explode(',',$to);
 		$mail = new PHPMailer;
 		$mail->CharSet=$charset;
 		$mail->setFrom($frommail,$fromname);
-		foreach($emails as $email) $mail->addAddress($email,'');
 		$mail->Subject = $subject;
 		if($AllowHTML) $mail->msgHTML($body);
 		$mail->AltBody =$plainbody;
 		
-		if(count($files)>0){
-			foreach($files as $file){
-				if(file_exists($file) && filesize($file)>0){
+		if(is_array($sendTo))
+		{
+			foreach(array('to','cc','bcc') as $type)
+			{
+				if(isset($sendTo[$type]) && count((array)$sendTo[$type]))
+				{
+					foreach((array)$sendTo[$type] as $email=>$emailName)
+					{
+						if($this->strpos($email,'@') === false && $this->strpos($emailName,'@') !== false)
+						{
+							$email=$emailName;
+							$emailName='';
+						}
+						if(filter_var($email,FILTER_VALIDATE_EMAIL) === false) continue;
+						if($type=='to')	$mail->addAddress($email,$emailName);
+						elseif($type=='cc')	$mail->addCC($email,$emailName);
+						elseif($type=='bcc') $mail->addBCC($email,$emailName);
+					}
+				}
+			}
+		}
+		else
+		{
+			$emails=@explode(',',$sendTo);
+			foreach($emails as $email) $mail->addAddress($email,'');
+		}
+		
+		if(count($files)>0)
+		{
+			foreach($files as $file)
+			{
+				if(file_exists($file) && filesize($file)>0)
+				{
 					$mail->addAttachment($file);
 				}
 			}
 		}
-		
 		return array('send'=>$mail->send(),'error'=>$mail->ErrorInfo);
 	}
 	
@@ -358,26 +420,30 @@ class WOAAPI{
 		{
 			$ch = curl_init();
 			
-			if($port>80){
+			if($port>80)
+			{
 				curl_setopt ( $ch, CURLOPT_PORT, $port );
 				$url=str_replace(":".$port,'',$url);
 			}
 			curl_setopt($ch, CURLOPT_URL, $url );
-			if($method=='POST'){				
+			if($method=='POST')
+			{				
 				curl_setopt($ch, CURLOPT_POST,1);
 				curl_setopt($ch, CURLOPT_POSTFIELDS,$fields);
 			}
 			
 			curl_setopt($ch, CURLOPT_HEADER, 0);
 			curl_setopt($ch, CURLOPT_USERAGENT,$user_agent);
-			if ((ini_get('open_basedir')!==false && (int)ini_get('open_basedir')==1) && (ini_get('safe_mode')!==false && (int)ini_get('safe_mode')==1)){
+			if ((ini_get('open_basedir')!==false && (int)ini_get('open_basedir')==1) && (ini_get('safe_mode')!==false && (int)ini_get('safe_mode')==1))
+			{
 				curl_setopt($ch, CURLOPT_FOLLOWLOCATION,1);
 				curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
 			}
 			curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 			curl_setopt($ch, CURLOPT_TIMEOUT, $this->timeout);
 			curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->timeout);
-			if(substr($url,0,5)=='https'){
+			if(substr($url,0,5)=='https')
+			{
 				curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 				curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
 			}

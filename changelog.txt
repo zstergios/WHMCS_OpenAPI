@@ -1,3 +1,7 @@
+#Version 1.8
+-WOAAPI::getCountiesDetails() new function
+-WOADB:getCountries /getCallingCodes re-implementation
+
 #Version 1.7
 -WOAAPI::getAddonLanguage() override fix & 3rd parameter added fall back
 -WOADB:getValue add to retrive single result

@@ -18,7 +18,9 @@ class WOADB{
 	protected $useMysqli=false;
 	protected $last_query=null;
 	public $charset=null;
-	function __construct(){
+	function __construct()
+	{
+		$this->useCapsule=defined('WOAPI_DBCAPSULE');
 		$this->connect();
 	}
 	
@@ -33,6 +35,7 @@ class WOADB{
 	//Connect to database if no connection found
 	public function connect(){	
 		if($this->conn) return true;
+		
 		$configfile=ROOTDIR.DIRECTORY_SEPARATOR.'configuration.php';
 		if(!file_exists($configfile)) exit("configuration.php not found at ".$configfile);
 		require($configfile);
@@ -44,7 +47,7 @@ class WOADB{
 		}*/
 		
 		//Check if there is already connection
-		if(!function_exists('mysql_query') || !@mysql_query('SELECT COUNT(*) AS sum FROM `tblconfiguration')){
+		if(!function_exists('mysql_query') || !@mysql_query('SELECT * FROM `tblconfiguration` LIMIT 1')){
 			$this->mysqlActive=false;
 		}
 		
@@ -120,7 +123,7 @@ class WOADB{
 	//Get columns
 	public function getColumns($table){
 		if(empty($table)) return array();
-		$rs = $this->query("SHOW COLUMNS FROM `".$table."`;");
+		$rs = $this->query('SHOW COLUMNS FROM '.$this->quoteValue($table).';');
 		$columns=array();
 		while ($row = $this->fetch_array($rs))
 		{
@@ -147,7 +150,6 @@ class WOADB{
 	//Delete Row
 	public function delete($table,$where=array()){
 		if(empty($table)) return false;
-		foreach($fields as $key=>$value) $set[]=$this->quoteField($key).'='.$this->quoteValue($value);
 		$wh=$where;
 		if(is_array($where)){
 			$wh=array();
@@ -190,7 +192,7 @@ class WOADB{
 	}
 	
 	//Single column
-	public function getValue($q){
+	public function getValue($q){		
 		$data=$this->fetch_array($this->query($q),'MYSQL_NUM');
 		return $data[0];
 	}

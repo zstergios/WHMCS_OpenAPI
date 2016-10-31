@@ -10,7 +10,7 @@
 if(!defined("WHMCS")) die("This file cannot be accessed directly");
 
 class WOAClientarea{
-	protected $ca;
+	protected $ClientArea;
 	protected $breadCrump=array();
 	protected $pagetitle='Custom Page';
 	function __construct($pagetitle=null){
@@ -26,15 +26,15 @@ class WOAClientarea{
 	public function initialize(){
 		$api=WOAAPI::getInstance();
 		if (version_compare(WHMCSV, '5.2.0') >= 0) {
-			$this->ca = new WHMCS_ClientArea();
-			$this->ca->setPageTitle($api->getLang($this->pagetitle));
-			$this->ca->addToBreadCrumb('index.php',$api->getLang('globalsystemname'));
+			$this->ClientArea = new WHMCS_ClientArea();
+			$this->ClientArea->setPageTitle($api->getLang($this->pagetitle));
+			$this->ClientArea->addToBreadCrumb('index.php',$api->getLang('globalsystemname'));
 			if(count($this->breadCrump)){
 				foreach($this->breadCrump as $page=>$languageKey){
-					$this->ca->addToBreadCrumb($page,$api->getLang($languageKey));
+					$this->ClientArea->addToBreadCrumb($page,$api->getLang($languageKey));
 				}
 			}
-			$this->ca->initPage();
+			$this->ClientArea->initPage();
 		}else{
 			$breadcrumbnav ='<a href="index.php">'.$api->getLang('globalsystemname').'</a>'; 
 			if(count($this->breadCrump)){
@@ -60,7 +60,7 @@ class WOAClientarea{
 	{
 		if (version_compare(WHMCSV, '6.0.0') >= 0)
 		{
-			return $this->ca->isLoggedIn();
+			return $this->ClientArea->isLoggedIn();
 		}
 		return (isset($_SESSION['uid']) && (int)$_SESSION['uid']>0)?true:false;
 	}
@@ -69,7 +69,7 @@ class WOAClientarea{
 	{
 		if (version_compare(WHMCSV, '6.0.0') >= 0)
 		{
-			return $this->ca->getUserID();
+			return $this->ClientArea->getUserID();
 		}
 		return (int)$_SESSION['uid'];
 	}
@@ -78,7 +78,7 @@ class WOAClientarea{
 	{
 		if (version_compare(WHMCSV, '6.0.0') >= 0)
 		{
-			$this->ca->requireLogin();
+			$this->ClientArea->requireLogin();
 		}
 		else
 		{
@@ -92,14 +92,14 @@ class WOAClientarea{
 	
 	public function output($template,$smartyvalues=array())
 	{
-		if (version_compare(WHMCSV, '5.2.0') >= 0)
+		if (is_object($this->ClientArea) && version_compare(WHMCSV, '5.2.0') >= 0)
 		{
 			foreach($smartyvalues as $key =>$val)
 			{
-				$this->ca->assign($key,$val);
+				$this->ClientArea->assign($key,$val);
 			}
-			$this->ca->setTemplate($template);
-			$this->ca->output();	
+			$this->ClientArea->setTemplate($template);
+			$this->ClientArea->output();	
 		}
 		else
 		{
