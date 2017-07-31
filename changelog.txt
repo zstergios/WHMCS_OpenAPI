@@ -1,3 +1,8 @@
+#Version 1.9
+-WOADB:fetch_array fix for mysqli
+-WOAAPI::getRemoteData fix
+-WOADBCapsule class prepare
+
 #Version 1.8
 -WOAAPI::getCountiesDetails() new function
 -WOADB:getCountries /getCallingCodes re-implementation
