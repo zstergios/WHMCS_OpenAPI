@@ -24,7 +24,7 @@ if(!defined('WHMCS'))
 }
 if(!defined('WOAPI_DBCAPSULE') && class_exists('Illuminate\Database\Capsule\Manager'))
 {
-	use Illuminate\Database\Capsule\Manager as Capsule;
+	//use Illuminate\Database\Capsule\Manager as Capsule;
 	define('WOAPI_DBCAPSULE',true);
 }
 

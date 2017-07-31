@@ -8,110 +8,90 @@
  * @license     http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL
 **/
 if(!defined("WHMCS")) die("This file cannot be accessed directly");
+use Illuminate\Database\Capsule\Manager as Capsule;
 
-class WOADB{
+class MyCapsule extends Capsule
+{
+	public function setPdoConnection($currepdontPdo)
+	{
+		$this->pdo = $pdo;
+		return $this;
+	}
+}
+
+class WOADBCapsule extends MyCapsule
+{
 	private static $instance;
 	protected $conn=null;
-	protected $mysqlActive=true;
 	public $counter=0;
 	protected $sql_query='';
 	protected $useMysqli=false;
 	protected $last_query=null;
-	public $charset=null;
+	
 	function __construct()
 	{
-		$this->useCapsule=defined('WOAPI_DBCAPSULE');
+		parent::__construct()
 		$this->connect();
 	}
 	
-	/*Get One Instance of Database*/
-	public static function getInstance() {
-		if(!self::$instance) {
+	public static function getInstance()
+	{
+		if(!self::$instance)
+		{
 			self::$instance = new self();
 		}
 		return self::$instance;
 	}
 	
-	//Connect to database if no connection found
-	public function connect(){	
+	public function connect()
+	{	
 		if($this->conn) return true;
-		
-		$configfile=ROOTDIR.DIRECTORY_SEPARATOR.'configuration.php';
-		if(!file_exists($configfile)) exit("configuration.php not found at ".$configfile);
-		require($configfile);
-		
-		/*$this->conn = mysql_connect($db_host,$db_username,$db_password,false);
-		if(!$this->conn){
-			$this->conn=NULL;
-			$this->mysqlActive=false;
-		}*/
-		
-		//Check if there is already connection
-		if(!function_exists('mysql_query') || !@mysql_query('SELECT * FROM `tblconfiguration` LIMIT 1')){
-			$this->mysqlActive=false;
-		}
-		
-		//Check if Mysqli is available
-		if(function_exists("mysqli_connect") && !$this->mysqlActive){ 
-			$this->useMysqli=true;
-		}
-		
-		//Fix password issue
-		if(empty($db_password)) $db_password=NULL;
-		
-		#Connect to DB
-		if(!$this->mysqlActive){
-			if($this->useMysqli)	
-				$this->conn = mysqli_connect($db_host,$db_username,$db_password);
-			else
-				$this->conn = mysql_connect($db_host,$db_username,$db_password);
-			
-			#Check Connect
-			if(!$this->conn){
-				exit($this->error());
-			}
-			
-			#SelectDB
-			if($this->useMysqli){		
-				@mysqli_select_db($this->conn,$db_name);
-			}else{
-				@mysql_select_db($db_name,$this->conn);
-			}
-			
-			$err=$this->error();
-			
-			if(!empty($err)){
-				exit("Select DB Error:". $err);
-			}
-			
-			#Charset
-			if(isset($mysql_charset)) $this->setCharset($mysql_charset);
-		}
+		$this->conn = Capsule::connection()->getPdo();
+		$this->conn->enableQueryLog();
+		$this->setPdoConnection($this->conn);
 	}
-	
-	public function setCharset($mysql_charset='utf8')
+		
+	public function sqlExecute($sql,$data=array())
 	{
-		$this->charset=$mysql_charset;
-		$result=$this->useMysqli?mysqli_set_charset($this->conn,$this->charset):@mysql_set_charset($this->charset,$this->conn);
-		if (!$result)
+		$this->conn->setFetchMode(PDO::FETCH_ASSOC);
+		
+		if(stripos($sql,'SELECT')!==false)
 		{
-			echo "Error loading character set ".$mysql_charset.":". $this->error();
+			$result=$this->conn->select($sql,$data);
 		}
-		return $result;
+		elseif(stripos($sql,'UPDATE')!==false)
+		{
+			$result=$this->conn->update($sql,$data);
+		}
+		elseif(stripos($sql,'INSERT')!==false)
+		{
+			$result=$this->conn->insert($sql,$data);
+		}
+		elseif(stripos($sql,'DELETE')!==false)
+		{
+			$result=$this->conn->delete($sql,$data);
+		}
+		else
+		{
+			$result=$this->conn->statement($sql,$data);
+		}
+		$this->conn->setFetchMode(PDO::FETCH_CLASS);
+		$laQuery = $this->conn->getQueryLog();
+		$this->sql_query=$laQuery[0]['query'];
+		
+		return (array)$result;
 	}
-	
 	
 	//Get Connection
-	public function getConnection(){
+	public function getConnection()
+	{
 		return $this->conn;
 	}
 	
 	//Escape String
-	public function safe($q){
-		if($this->useMysqli) 
-			return mysqli_real_escape_string($this->conn,$q);
-		else 
-			return mysql_real_escape_string($q);
+	public function safe($q)
+	{
+		return addslashes($q)
 	}
 	
 	//Quote Field Name
@@ -123,15 +103,16 @@ class WOADB{
 	//Quote Key Name
 	public function quoteValue($n)
 	{
-		return '"'.$this->safe($n).'"';
+		return $this->conn->quote($this->safe($n));
 	}
 	
 	//Get columns
-	public function getColumns($table){
+	public function getColumns($table)
+	{
 		if(empty($table)) return array();
-		$rs = $this->query('SHOW COLUMNS FROM '.$this->quoteValue($table).';');
+		$result = $this->query('SHOW COLUMNS FROM '.$this->quoteValue($table).';');
 		$columns=array();
-		while ($row = $this->fetch_array($rs))
+		foreach($result as $row)
 		{
 			$columns[$row['Field']]=$row;
 		}
@@ -139,106 +120,110 @@ class WOADB{
 	}
 	
 	//Set query
-	public function query($q){
-		$this->sql_query=trim($q);
-		if($this->useMysqli){ 
-			$this->last_query=mysqli_query($this->conn,$this->sql_query);
-		}else{
-			$this->last_query=mysql_query($this->sql_query);
-		}
-		if(!$this->last_query){
-			if((int)$_REQUEST["debug"]==1) echo "<div style=\"border:1px dotted red;\">Error on Query: <i>".$this->sql_query."</i>\n".$this->error()."</div>";
-		}
+	public function query($q,$data=array())
+	{
+		$this->last_query=$this->sqlExecute(trim($q),$data);
 		$this->counter++;	
 		return $this->last_query;
 	}
 	
 	//Delete Row
-	public function delete($table,$where=array()){
+	public function delete($table,$where=array())
+	{
 		if(empty($table)) return false;
 		$wh=$where;
-		if(is_array($where)){
+		$data=array();
+		if(is_array($where))
+		{
 			$wh=array();
-			foreach($where as $key=>$value) $wh[]=$this->quoteField($key).'='.$this->quoteValue($value);
+			foreach($where as $key=>$value)
+			{
+				$wh[]=$this->quoteField($key).'=?';
+			}
 			$wh=@implode(' AND ',$wh);
+			$data=array_values($where);
 		}
-		//if(empty($wh)) return false;
-		return $this->query('DELETE FROM '.$this->quoteField($table).' WHERE '.$wh.';');
+		return $this->query('DELETE FROM '.$this->quoteField($table).' WHERE '.$wh.';',$data);
 	}
 	
 	//Insert Row
-	public function insert($table,$fields=array()){
+	public function insert($table,$fields=array())
+	{
 		if(empty($table) || !count($fields)) return false;
 		$values=$columns=array();
-		foreach($fields as $key=>$value){
+		foreach($fields as $key=>$value)
+		{
 			$columns[]=$this->quoteField($key);
-			$values[]=$this->quoteValue($value);
+			$values[]='?';
 		}
-		return $this->query('INSERT IGNORE INTO `'.$table.'`('.implode(',',$columns).') VALUES('.implode(',',$values).');');
+		return $this->query('INSERT IGNORE INTO `'.$table.'`('.implode(',',$columns).') VALUES('.implode(',',$values).');',array_values($fields));
 	}
 	
 	//Update Row
-	public function update($table,$fields=array(),$where=array()){
+	public function update($table,$fields=array(),$where=array())
+	{
 		if(empty($table) || !count($fields)) return false;
-		$set=array();
+		$data=$set=array();
 		foreach($fields as $key=>$value) $set[]=$this->quoteField($key).'='.$this->quoteValue($value);
 		$wh=$where;
-		if(is_array($where)){
+		if(is_array($where))
+		{
 			$wh=array();
-			foreach($where as $key=>$value) $wh[]=$this->quoteField($key).'='.$this->quoteValue($value);
+			foreach($where as $key=>$value) $wh[]=$this->quoteField($key).'=?';
 			$wh=@implode(' AND ',$wh);
+			$data=array_values($where);
 		}
-		//if(empty($wh)) return false;
-		return $this->query('UPDATE `'.$table.'` SET '.implode(', ',$set).' WHERE '.$wh.';');
+		return $this->query('UPDATE `'.$table.'` SET '.implode(', ',$set).' WHERE '.$wh.';',$data);
 	}
 	
 	//Get query
-	public function getSQL(){
+	public function getSQL()
+	{
 		return $this->sql_query;
 	}
 	
 	//Single column
-	public function getValue($q){		
-		$data=$this->fetch_array($this->query($q),'MYSQL_NUM');
-		return $data[0];
+	public function getValue($q)
+	{		
+		$q=trim(rtrim($q,';'));
+		if(stripos($q,'LIMIT')!==FALSE)
+		{
+			$q=substr($q, 0,stripos($q,'LIMIT'));
+		}
+		$q.=' LIMIT 1;';
+		$result=$this->query($q);
+		return reset($result);
 	}
 	
 	//Get Single Row
-	public function getRow($q){
-		return $this->fetch_array($this->query($q));
+	public function getRow($q)
+	{
+		$q=trim(rtrim($q,';'));
+		if(stripos($q,'LIMIT')!==FALSE)
+		{
+			$q=substr($q, 0,stripos($q,'LIMIT'));
+		}
+		$q.=' LIMIT 1;';
+		$result=$this->query($q);		
+		return $result;
 	}
 	
+	//Fetch Array
 	public function fetch_array($rs=null,$type ='MYSQL_ASSOC')
 	{
-		if(!$rs) $rs=$this->last_query;
-		$type=strtoupper($type);
-		if($this->useMysqli)
-		{
-			$type=str_replace('MYSQL','MYSQLI',$type);
-		}
-		if($rs === FALSE) return false;
-		if($this->useMysqli)
-			return mysqli_fetch_array($rs,constant($type));
-		else
-			return mysql_fetch_array($rs,constant($type));
+		return $this->last_query;
 	}
 	
 	//Fetch row
-	public function fetch_row($rs=null){
-		if(!$rs) $rs=$this->last_query;
-		if($this->useMysqli)
-			return mysqli_fetch_row($rs);
-		else
-			return mysql_fetch_row($rs);
+	public function fetch_row($rs=null)
+	{
+		return $this->last_query;
 	}
 	
 	//get last insert id
-	public function insert_id($rs=null){
-		if(!$rs) $rs=$this->last_query;
-		if($this->useMysqli)
-			return mysqli_insert_id($this->conn);
-		else
-			return mysql_insert_id();
+	public function insert_id($rs=null)
+	{
+		return $this->conn->lastInsertId();
 	}
 	
 	//get number of fields

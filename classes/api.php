@@ -1,7 +1,7 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     1.8
+ * @version     1.9
  * @author      Stergios Zgouletas <info@web-expert.gr>
  * @link        http://www.web-expert.gr
  * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
@@ -12,7 +12,7 @@ if(!defined("WHMCS")) die("This file cannot be accessed directly");
 class WOAAPI
 {
 	private static $instance;
-	private static $version='1.8';
+	private static $version='1.9.1';
 	protected $debug=false;
 	protected $db=null;
 	protected $moduleConfig=array();
@@ -229,9 +229,11 @@ class WOAAPI
 	
 	public function getCountiesDetails()
 	{
-		if(version_compare(WHMCSV, '7.0.0') >= 0)
+		if(count($this->countries['countries']) && count($this->countries['callingCodes'])) return $this->countries;
+		$countryFile=file_exists(ROOTDIR.'/resources/country/countries.json')?'countries.json':'dist.countries.json';
+		if(file_exists(ROOTDIR.'/resources/country/'.$countryFile))
 		{
-			$data=json_encode(@file_get_contents(ROOTDIR.'/resources/country/dist.countries.json'),true);
+			$data=json_decode(@file_get_contents(ROOTDIR.'/resources/country/'.$countryFile),true);
 			foreach($data as $code=>$cdata)
 			{
 				$this->countries['countries'][$code]=$cdata['name'];
@@ -318,7 +320,8 @@ class WOAAPI
 		return true;
 	}
 	
-	function highlightKeyword($haystack,$needle,$color = "#daa732") {
+	function highlightKeyword($haystack,$needle,$color = "#daa732")
+	{
 		return preg_replace("/($needle)/i",sprintf('<span style="color:%s;">$1</span>',$color),$haystack);
 	}
 	
@@ -420,14 +423,14 @@ class WOAAPI
 		{
 			$ch = curl_init();
 			
-			if($port>80)
+			if($port!=80 && $port!=443)
 			{
 				curl_setopt ( $ch, CURLOPT_PORT, $port );
 				$url=str_replace(":".$port,'',$url);
 			}
 			curl_setopt($ch, CURLOPT_URL, $url );
 			if($method=='POST')
-			{				
+			{
 				curl_setopt($ch, CURLOPT_POST,1);
 				curl_setopt($ch, CURLOPT_POSTFIELDS,$fields);
 			}
