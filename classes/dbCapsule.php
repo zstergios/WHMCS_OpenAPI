@@ -8,7 +8,6 @@
  * @license     http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL
 **/
 if(!defined("WHMCS")) die("This file cannot be accessed directly");
-use Illuminate\Database\Capsule\Manager as Capsule;
 
 class MyCapsule extends Capsule
 {

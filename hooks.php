@@ -9,7 +9,7 @@
 **/
 if(!defined("WHMCS")) die("This file cannot be accessed directly");
 
-if($_REQUEST["module"]=='openAPI' && (int)$_SESSION["adminid"]>0 && strpos($_SERVER["REQUEST_URI"],'addonmodules.php?')!==false && $_REQUEST["task"]=="ajax"){
+if(isset($_REQUEST["module"]) && $_REQUEST["module"]=='openAPI' && (int)$_SESSION["adminid"]>0 && strpos($_SERVER["REQUEST_URI"],'addonmodules.php?')!==false && @$_REQUEST["task"]=="ajax"){
 	require_once('init.php');
 	$api=WOAAPI::getInstance();
 	$response=array('error'=>null,'data'=>null);

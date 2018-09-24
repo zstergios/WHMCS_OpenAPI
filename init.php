@@ -22,12 +22,8 @@ if(!defined('WHMCS'))
 		if(defined("CLIENTAREA")) require_once($whmcsRoot."includes/clientareafunctions.php");
 	}
 }
-if(!defined('WOAPI_DBCAPSULE') && class_exists('Illuminate\Database\Capsule\Manager'))
-{
-	//use Illuminate\Database\Capsule\Manager as Capsule;
-	define('WOAPI_DBCAPSULE',true);
-}
 
+if(!defined('WOAPI_DBCAPSULE') && class_exists('Capsule')) define('WOAPI_DBCAPSULE',true);
 $classPath=dirname(__FILE__).DIRECTORY_SEPARATOR."classes".DIRECTORY_SEPARATOR;
 if(!defined('WOAPI_CLASSPATH')) define('WOAPI_CLASSPATH',$classPath);
 

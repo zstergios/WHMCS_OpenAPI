@@ -1,7 +1,7 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     1.9
+ * @version     2.0
  * @author      Stergios Zgouletas <info@web-expert.gr>
  * @link        http://www.web-expert.gr
  * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
@@ -18,10 +18,22 @@ class WOADB{
 	protected $useMysqli=false;
 	protected $last_query=null;
 	public $charset=null;
+	protected $enableErrors=0;
+	
+	public function display_errors($mode)
+	{	
+		$this->enableErrors=(int)$mode;
+	}
+	
 	function __construct()
 	{
 		$this->useCapsule=defined('WOAPI_DBCAPSULE');
 		$this->connect();
+	}
+	
+	function __destruct()
+	{
+		$this->close();
 	}
 	
 	/*Get One Instance of Database*/
@@ -33,21 +45,22 @@ class WOADB{
 	}
 	
 	//Connect to database if no connection found
-	public function connect(){	
+	public function connect()
+	{	
 		if($this->conn) return true;
 		
 		$configfile=ROOTDIR.DIRECTORY_SEPARATOR.'configuration.php';
 		if(!file_exists($configfile)) exit("configuration.php not found at ".$configfile);
 		require($configfile);
 		
-		/*$this->conn = mysql_connect($db_host,$db_username,$db_password,false);
+		/*$this->conn = @mysql_connect($db_host,$db_username,$db_password,false);
 		if(!$this->conn){
 			$this->conn=NULL;
 			$this->mysqlActive=false;
 		}*/
 		
 		//Check if there is already connection
-		if(!function_exists('mysql_query') || !@mysql_query('SELECT * FROM `tblconfiguration` LIMIT 1')){
+		if(!function_exists('@mysql_query') || !@mysql_query('SELECT 1')){
 			$this->mysqlActive=false;
 		}
 		
@@ -60,11 +73,12 @@ class WOADB{
 		if(empty($db_password)) $db_password=NULL;
 		
 		#Connect to DB
-		if(!$this->mysqlActive){
+		if(!$this->mysqlActive)
+		{
 			if($this->useMysqli)	
 				$this->conn = mysqli_connect($db_host,$db_username,$db_password);
 			else
-				$this->conn = mysql_connect($db_host,$db_username,$db_password);
+				$this->conn = @mysql_connect($db_host,$db_username,$db_password);
 			
 			#Check Connect
 			if(!$this->conn){
@@ -95,7 +109,7 @@ class WOADB{
 		$result=$this->useMysqli?mysqli_set_charset($this->conn,$this->charset):@mysql_set_charset($this->charset,$this->conn);
 		if (!$result)
 		{
-			echo "Error loading character set ".$mysql_charset.":". $this->error();
+			if($this->enableErrors) echo "Error loading character set ".$mysql_charset.":". $this->error();
 		}
 		return $result;
 	}
@@ -111,7 +125,7 @@ class WOADB{
 		if($this->useMysqli) 
 			return mysqli_real_escape_string($this->conn,$q);
 		else 
-			return mysql_real_escape_string($q);
+			return @mysql_real_escape_string($q);
 	}
 	
 	//Quote Field Name
@@ -129,7 +143,7 @@ class WOADB{
 	//Get columns
 	public function getColumns($table){
 		if(empty($table)) return array();
-		$rs = $this->query('SHOW COLUMNS FROM '.$this->quoteValue($table).';');
+		$rs = $this->query('SHOW COLUMNS FROM '.$this->quoteField($table).';');
 		$columns=array();
 		while ($row = $this->fetch_array($rs))
 		{
@@ -144,10 +158,11 @@ class WOADB{
 		if($this->useMysqli){ 
 			$this->last_query=mysqli_query($this->conn,$this->sql_query);
 		}else{
-			$this->last_query=mysql_query($this->sql_query);
+			$this->last_query=@mysql_query($this->sql_query);
 		}
-		if(!$this->last_query){
-			if((int)$_REQUEST["debug"]==1) echo "<div style=\"border:1px dotted red;\">Error on Query: <i>".$this->sql_query."</i>\n".$this->error()."</div>";
+		if(!$this->last_query && $this->enableErrors)
+		{
+			echo "<div style=\"border:1px dotted red;\">Error on Query: <i>".$this->sql_query."</i>\n".$this->error()."</div>";
 		}
 		$this->counter++;	
 		return $this->last_query;
@@ -208,19 +223,29 @@ class WOADB{
 		return $this->fetch_array($this->query($q));
 	}
 	
+	//Get Single Row
+	public function getArray($q,$key=NULL,$id=NULL)
+	{
+		$return=array();
+		$rs=$this->query($q);
+		while($r=$this->fetch_array($rs))
+		{
+			$value=$key===NULL?$r:$r[$key];
+			$id===NULL? $return[]=$value : $return[$r[$id]]=$r[$key];
+		}
+		return $return;
+	}
+	
 	public function fetch_array($rs=null,$type ='MYSQL_ASSOC')
 	{
 		if(!$rs) $rs=$this->last_query;
 		$type=strtoupper($type);
-		if($this->useMysqli)
-		{
-			$type=str_replace('MYSQL','MYSQLI',$type);
-		}
+		if($this->useMysqli) $type=str_replace('MYSQL','MYSQLI',$type);
 		if($rs === FALSE) return false;
 		if($this->useMysqli)
 			return mysqli_fetch_array($rs,constant($type));
 		else
-			return mysql_fetch_array($rs,constant($type));
+			return @mysql_fetch_array($rs,constant($type));
 	}
 	
 	//Fetch row
@@ -229,7 +254,7 @@ class WOADB{
 		if($this->useMysqli)
 			return mysqli_fetch_row($rs);
 		else
-			return mysql_fetch_row($rs);
+			return @mysql_fetch_row($rs);
 	}
 	
 	//get last insert id
@@ -238,7 +263,7 @@ class WOADB{
 		if($this->useMysqli)
 			return mysqli_insert_id($this->conn);
 		else
-			return mysql_insert_id();
+			return @mysql_insert_id();
 	}
 	
 	//get number of fields
@@ -247,7 +272,7 @@ class WOADB{
 		if($this->useMysqli)
 			return (int)mysqli_num_fields($rs);
 		else
-			return (int)mysql_num_fields($rs);
+			return (int)@mysql_num_fields($rs);
 	}	
 	
 	//get number of rows
@@ -256,7 +281,7 @@ class WOADB{
 		if($this->useMysqli)
 			return (int)mysqli_num_rows($rs);
 		else
-			return (int)mysql_num_rows($rs);
+			return (int)@mysql_num_rows($rs);
 	}
 	//get affected rows (insert/update/delete)
 	public function affected_rows(){
@@ -269,7 +294,7 @@ class WOADB{
 		if($this->useMysqli)
 			return mysqli_error($this->conn);
 		else
-			return mysql_error($this->conn);
+			return @mysql_error($this->conn);
 	}
 	//close connection
 	public function close(){
@@ -277,7 +302,7 @@ class WOADB{
 			if($this->useMysqli)
 				mysqli_close($this->conn);
 			else
-				mysql_close($this->conn);
+				@mysql_close($this->conn);
 			$this->conn=null;
 		}
 	}

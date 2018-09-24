@@ -120,7 +120,8 @@ class WOAAPI
 		return $rs;
 	}
 	
-	function printJSON($data=array()){
+	function printJSON($data=array())
+	{
 		header('Content-Type: application/json; charset=utf-8',true);
 		exit(json_encode($data));
 	}
@@ -328,7 +329,7 @@ class WOAAPI
 	//SendTo Parameter can be string or array $sendTo=array('to'=>array(),'cc'=>array(),'bcc'=>array());
 	public function sendEmail($sendTo,$subject,$body,$frommail='',$fromname='WHMCS System',$AllowHTML=true,$charset="utf-8",$files=array())
 	{
-		if((is_array($sendTo) && !count($sendTo)) || (!is_array($sendTo) && (empty($to) || $this->strpos($to,'@')===false))) return false;
+		if((is_array($sendTo) && !count($sendTo)) || (!is_array($sendTo) && (empty($to) || $this->strpos($to,'@')===false))) return array('send'=>false,'error'=>'No email');
 		
 		if(file_exists(ROOTDIR.'/includes/classes/PHPMailer/PHPMailerAutoload.php'))
 		{
@@ -337,6 +338,11 @@ class WOAAPI
 		else
 		{
 			require_once(ROOTDIR.'/vendor/phpmailer/phpmailer/PHPMailerAutoload.php');
+		}
+		
+		if(!class_exists('PHPMailer'))
+		{
+			 return array('send'=>false,'error'=>'PHPMailer not found');
 		}
 		
 		$whmcs=$this->getWhmcsConfig();
@@ -354,7 +360,7 @@ class WOAAPI
 			$plainbody=@iconv(mb_detect_encoding($plainbody),$charset,$plainbody); //plain
 			$body=@iconv(mb_detect_encoding($body),$charset,$body); #html
 		}
-		
+				
 		$mail = new PHPMailer;
 		$mail->CharSet=$charset;
 		$mail->setFrom($frommail,$fromname);
