@@ -1,7 +1,7 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     2.0
+ * @version     2.1
  * @author      Stergios Zgouletas <info@web-expert.gr>
  * @link        http://www.web-expert.gr
  * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
@@ -53,19 +53,15 @@ class WOADB{
 		if(!file_exists($configfile)) exit("configuration.php not found at ".$configfile);
 		require($configfile);
 		
-		/*$this->conn = @mysql_connect($db_host,$db_username,$db_password,false);
-		if(!$this->conn){
-			$this->conn=NULL;
-			$this->mysqlActive=false;
-		}*/
-		
 		//Check if there is already connection
-		if(!function_exists('@mysql_query') || !@mysql_query('SELECT 1')){
+		if(!function_exists('@mysql_query') || !@mysql_query('SELECT 1'))
+		{
 			$this->mysqlActive=false;
 		}
 		
 		//Check if Mysqli is available
-		if(function_exists("mysqli_connect") && !$this->mysqlActive){ 
+		if(function_exists("mysqli_connect") && !$this->mysqlActive)
+		{ 
 			$this->useMysqli=true;
 		}
 		
@@ -81,7 +77,8 @@ class WOADB{
 				$this->conn = @mysql_connect($db_host,$db_username,$db_password);
 			
 			#Check Connect
-			if(!$this->conn){
+			if(!$this->conn)
+			{
 				exit($this->error());
 			}
 			
@@ -103,25 +100,26 @@ class WOADB{
 		}
 	}
 	
-	public function setCharset($mysql_charset='utf8')
+	public function setCharset($charset='utf8')
 	{
-		$this->charset=$mysql_charset;
+		$this->charset=$charset;
 		$result=$this->useMysqli?mysqli_set_charset($this->conn,$this->charset):@mysql_set_charset($this->charset,$this->conn);
-		if (!$result)
+		if(!$result && $this->enableErrors)
 		{
-			if($this->enableErrors) echo "Error loading character set ".$mysql_charset.":". $this->error();
+			echo "Error loading character set ".$this->charset.":". $this->error();
 		}
 		return $result;
 	}
 	
-	
 	//Get Connection
-	public function getConnection(){
+	public function getConnection()
+	{
 		return $this->conn;
 	}
 	
 	//Escape String
-	public function safe($q){
+	public function safe($q)
+	{
 		if($this->useMysqli) 
 			return mysqli_real_escape_string($this->conn,$q);
 		else 
@@ -131,7 +129,14 @@ class WOADB{
 	//Quote Field Name
 	public function quoteField($n)
 	{
-		return '`'.$this->safe($n).'`';
+		$prefix='';
+		$field=$this->safe($n);
+		if(strpos($field,'.')!==false)
+		{
+			list($prefix,$field)=explode('.',$n,2);
+			$prefix.='.';
+		}		
+		return $prefix.'`'.$this->safe($field).'`';
 	}
 	
 	//Quote Key Name
@@ -141,7 +146,8 @@ class WOADB{
 	}
 	
 	//Get columns
-	public function getColumns($table){
+	public function getColumns($table)
+	{
 		if(empty($table)) return array();
 		$rs = $this->query('SHOW COLUMNS FROM '.$this->quoteField($table).';');
 		$columns=array();
@@ -153,13 +159,19 @@ class WOADB{
 	}
 	
 	//Set query
-	public function query($q){
+	public function query($q)
+	{
 		$this->sql_query=trim($q);
+		
+		$startTime=microtime(true);
 		if($this->useMysqli){ 
 			$this->last_query=mysqli_query($this->conn,$this->sql_query);
 		}else{
 			$this->last_query=@mysql_query($this->sql_query);
 		}
+		
+		$this->queries[]=array('time'=>round(microtime(false) - $startTime,4),'sql'=>$this->sql_query);
+		
 		if(!$this->last_query && $this->enableErrors)
 		{
 			echo "<div style=\"border:1px dotted red;\">Error on Query: <i>".$this->sql_query."</i>\n".$this->error()."</div>";
@@ -168,13 +180,41 @@ class WOADB{
 		return $this->last_query;
 	}
 	
+	//Build SQL
+	public function buildSQL($table,$select='*',$where=array())
+	{
+		if(empty($table)) return false;
+		$wh=$where;
+		if(is_array($where))
+		{
+			$wh=array();
+			foreach($where as $key=>$value) $wh[]=$this->quoteField($key).($this->isNULL($value)?' is ':'=').$this->quoteValue($value);
+			$wh=@implode(' AND ',$wh);
+		}
+		
+		if(is_array($select)) $select=implode(', ',$select);
+		return 'SELECT '.$select.' FROM '.$this->quoteField($table).' WHERE '.$wh.';';
+	}
+	
+	//Select Row
+	public function select($table,$select='*',$where=array())
+	{
+		return $this->query($this->buildSQL($table,$select,$where));
+	}
+	
+	
 	//Delete Row
 	public function delete($table,$where=array()){
 		if(empty($table)) return false;
 		$wh=$where;
-		if(is_array($where)){
+		if(is_array($where))
+		{
 			$wh=array();
-			foreach($where as $key=>$value) $wh[]=$this->quoteField($key).'='.$this->quoteValue($value);
+			foreach($where as $key=>$value)
+			{
+				$val=$this->isNULL($value)?'NULL':$this->quoteValue($value);
+				$wh[]=$this->quoteField($key).($this->isNULL($value)?' is ':'=').$val;
+			}
 			$wh=@implode(' AND ',$wh);
 		}
 		//if(empty($wh)) return false;
@@ -182,44 +222,65 @@ class WOADB{
 	}
 	
 	//Insert Row
-	public function insert($table,$fields=array()){
+	public function insert($table,$fields=array())
+	{
 		if(empty($table) || !count($fields)) return false;
 		$values=$columns=array();
-		foreach($fields as $key=>$value){
+		foreach($fields as $key=>$value)
+		{
 			$columns[]=$this->quoteField($key);
 			$values[]=$this->quoteValue($value);
 		}
-		return $this->query('INSERT IGNORE INTO `'.$table.'`('.implode(',',$columns).') VALUES('.implode(',',$values).');');
+		return $this->query('INSERT IGNORE INTO '.$this->quoteField($table).' ('.implode(',',$columns).') VALUES('.implode(',',$values).');');
 	}
 	
+	public function isNULL($value)
+	{
+		return (!is_numeric($value) && ($value===NULL || strtoupper($value)=='NULL'))?true:false;
+	}
+
 	//Update Row
 	public function update($table,$fields=array(),$where=array()){
 		if(empty($table) || !count($fields)) return false;
 		$set=array();
-		foreach($fields as $key=>$value) $set[]=$this->quoteField($key).'='.$this->quoteValue($value);
+
+		foreach($fields as $key=>$value)
+		{
+			$val=$this->isNULL($value)?'NULL':$this->quoteValue($value);
+			$set[]=$this->quoteField($key).'='.$val;
+		}
+		
 		$wh=$where;
 		if(is_array($where)){
 			$wh=array();
-			foreach($where as $key=>$value) $wh[]=$this->quoteField($key).'='.$this->quoteValue($value);
+			foreach($where as $key=>$value)
+			{
+				$val=$this->isNULL($value)?'NULL':$this->quoteValue($value);
+				$wh[]=$this->quoteField($key).($this->isNULL($value)?' is ':'=').$val;
+			}	
+			
 			$wh=@implode(' AND ',$wh);
 		}
 		//if(empty($wh)) return false;
-		return $this->query('UPDATE `'.$table.'` SET '.implode(', ',$set).' WHERE '.$wh.';');
+		return $this->query('UPDATE '.$this->quoteField($table).' SET '.implode(', ',$set).' WHERE '.$wh.';');
 	}
 	
 	//Get query
-	public function getSQL(){
+	public function getSQL()
+	{
 		return $this->sql_query;
 	}
 	
 	//Single column
-	public function getValue($q){		
+	public function getValue($q)
+	{		
 		$data=$this->fetch_array($this->query($q),'MYSQL_NUM');
 		return $data[0];
 	}
 	
 	//Get Single Row
-	public function getRow($q){
+	public function getRow($q)
+	{
 		return $this->fetch_array($this->query($q));
 	}
 	
@@ -230,8 +291,11 @@ class WOADB{
 		$rs=$this->query($q);
 		while($r=$this->fetch_array($rs))
 		{
-			$value=$key===NULL?$r:$r[$key];
-			$id===NULL? $return[]=$value : $return[$r[$id]]=$r[$key];
+			$value=empty($key)?$r:$r[$key];
+			if($id===NULL) 
+				$return[]=$value;
+			else 
+				$return[$r[$id]]=$value;
 		}
 		return $return;
 	}
@@ -240,7 +304,10 @@ class WOADB{
 	{
 		if(!$rs) $rs=$this->last_query;
 		$type=strtoupper($type);
-		if($this->useMysqli) $type=str_replace('MYSQL','MYSQLI',$type);
+		if($this->useMysqli)
+		{
+			$type=str_replace('MYSQL','MYSQLI',$type);
+		}
 		if($rs === FALSE) return false;
 		if($this->useMysqli)
 			return mysqli_fetch_array($rs,constant($type));
@@ -284,20 +351,24 @@ class WOADB{
 			return (int)@mysql_num_rows($rs);
 	}
 	//get affected rows (insert/update/delete)
-	public function affected_rows(){
+	public function affected_rows()
+	{
 		if($this->useMysqli) return (int)@mysqli_affected_rows($this->conn);
 		return (int)@mysql_affected_rows();
 	}
 	
 	//Get error
-	public function error($rs=null){
+	public function error($rs=null)
+	{
 		if($this->useMysqli)
 			return mysqli_error($this->conn);
 		else
 			return @mysql_error($this->conn);
 	}
+	
 	//close connection
-	public function close(){
+	public function close()
+	{
 		if($this->conn){
 			if($this->useMysqli)
 				mysqli_close($this->conn);

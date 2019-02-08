@@ -1,15 +1,24 @@
+#Version 2.1
+-WOADB:isNULL() string compare to uppercase
+-WOAAPI::sendEmail add SMTP support with mail() failback
+
+#Version 2.0
+-WOADB:isNULL() checks for NULL
+-WOADB:buildSQL() build SQL and get sql query string
+-WOADB:select() select sql function executes the query of buildSQL()
+
 #Version 1.9
--WOADB:fetch_array fix for mysqli
--WOAAPI::getRemoteData fix
+-WOADB:fetch_array() fix for mysqli
+-WOAAPI::getRemoteData() fix
 -WOADBCapsule class prepare
 
 #Version 1.8
 -WOAAPI::getCountiesDetails() new function
--WOADB:getCountries /getCallingCodes re-implementation
+-WOADB:getCountries() /getCallingCodes() re-implementation
 
 #Version 1.7
 -WOAAPI::getAddonLanguage() override fix & 3rd parameter added fall back
--WOADB:getValue add to retrive single result
+-WOADB:getValue() add to retrive single result
 -WOAFORM:pagination() added
 
 #Version 1.6

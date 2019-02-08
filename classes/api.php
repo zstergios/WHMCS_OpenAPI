@@ -1,7 +1,7 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     1.9
+ * @version     2.1
  * @author      Stergios Zgouletas <info@web-expert.gr>
  * @link        http://www.web-expert.gr
  * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
@@ -12,7 +12,7 @@ if(!defined("WHMCS")) die("This file cannot be accessed directly");
 class WOAAPI
 {
 	private static $instance;
-	private static $version='1.9';
+	private static $version='2.1';
 	protected $debug=false;
 	protected $db=null;
 	protected $moduleConfig=array();
@@ -28,7 +28,7 @@ class WOAAPI
 		$whmcs=$this->getWhmcsConfig();
 		list($Version,$Release)=@explode('-',$whmcs["Version"]);
 		if(!defined('WHMCSV')) define('WHMCSV',$Version);
-		$this->setUpdateServer('https://raw.githubusercontent.com/zstergios/WHMCS_OpenAPI/master/update.ini','openAPI');
+		$this->setUpdateServer('https://raw.githubusercontent.com/zstergios/WHMCS_OpenAPI/master/update.ini?t='.time(),'openAPI');
 	}
 	
 	public static function getInstance()
@@ -361,51 +361,104 @@ class WOAAPI
 			$body=@iconv(mb_detect_encoding($body),$charset,$body); #html
 		}
 				
-		$mail = new PHPMailer;
-		$mail->CharSet=$charset;
-		$mail->setFrom($frommail,$fromname);
-		$mail->Subject = $subject;
-		if($AllowHTML) $mail->msgHTML($body);
-		$mail->AltBody =$plainbody;
-		
-		if(is_array($sendTo))
+		$mail = new PHPMailer(true);
+		try
 		{
-			foreach(array('to','cc','bcc') as $type)
+			$mail->isMail();
+			if($whmcs['MailType']!='mail' && !empty($whmcs['SMTPUsername']) && !empty($whmcs['SMTPPassword']))
 			{
-				if(isset($sendTo[$type]) && count((array)$sendTo[$type]))
+				$rsp=$this->callAPI(array('action'=>'DecryptPassword','password2'=>$whmcs['SMTPPassword'],'responsetype'=>'json'));
+				$data=json_decode($rsp,true);
+				if($data!==null && $data['result']=='success')
 				{
-					foreach((array)$sendTo[$type] as $email=>$emailName)
+					$mail->SMTPDebug = 0;
+					$mail->isSMTP();
+					$mail->SMTPAuth = true;
+					$mail->Host=$whmcs['SMTPHost'];
+					$mail->Port=$whmcs['SMTPPort'];
+					$mail->Username=$whmcs['SMTPUsername'];
+					$mail->Password=$data['password'];
+				
+					if(!empty($whmcs['SMTPSSL']))
+					{			
+						$mail->SMTPSecure =$whmcs['SMTPSSL'];
+					}
+					
+					$mail->SMTPOptions = array(
+						'ssl' => array(
+							'verify_peer' => false,
+							'verify_peer_name' => false,
+							'allow_self_signed' => true
+						)
+					);
+				}
+				else if(!function_exists('mail'))
+				{
+					return array('send'=>false,'error'=>'Failed to descrypt SMTP password');
+				}
+			}
+			
+			$encodings=array(0=>'8bit',1=>'7bit',2=>'binary',3=>'base64');
+			if(in_array($whmcs['MailEncoding'],$encodings))
+			{
+				$mail->Encoding=$encodings[$whmcs['MailEncoding']];
+			}
+		
+			$mail->CharSet=$charset;
+			$mail->setFrom($frommail,$fromname);
+			$mail->Subject = $subject;
+			if($AllowHTML) $mail->msgHTML($body);
+			$mail->AltBody =$plainbody;
+			
+			if(is_array($sendTo))
+			{
+				foreach(array('to','cc','bcc') as $type)
+				{
+					if(isset($sendTo[$type]) && count((array)$sendTo[$type]))
 					{
-						if($this->strpos($email,'@') === false && $this->strpos($emailName,'@') !== false)
+						foreach((array)$sendTo[$type] as $email=>$emailName)
 						{
-							$email=$emailName;
-							$emailName='';
+							if($this->strpos($email,'@') === false && $this->strpos($emailName,'@') !== false)
+							{
+								$email=$emailName;
+								$emailName='';
+							}
+							if(filter_var($email,FILTER_VALIDATE_EMAIL) === false) continue;
+							if($type=='to')	$mail->addAddress($email,$emailName);
+							elseif($type=='cc')	$mail->addCC($email,$emailName);
+							elseif($type=='bcc') $mail->addBCC($email,$emailName);
 						}
-						if(filter_var($email,FILTER_VALIDATE_EMAIL) === false) continue;
-						if($type=='to')	$mail->addAddress($email,$emailName);
-						elseif($type=='cc')	$mail->addCC($email,$emailName);
-						elseif($type=='bcc') $mail->addBCC($email,$emailName);
 					}
 				}
 			}
-		}
-		else
-		{
-			$emails=@explode(',',$sendTo);
-			foreach($emails as $email) $mail->addAddress($email,'');
-		}
-		
-		if(count($files)>0)
-		{
-			foreach($files as $file)
+			else
 			{
-				if(file_exists($file) && filesize($file)>0)
+				$emails=@explode(',',$sendTo);
+				foreach($emails as $email) $mail->addAddress($email,'');
+			}
+			
+			if(count($files)>0)
+			{
+				foreach($files as $file)
 				{
-					$mail->addAttachment($file);
+					if(file_exists($file) && filesize($file)>0)
+					{
+						$mail->addAttachment($file);
+					}
 				}
 			}
+			$result=$mail->send();
 		}
-		return array('send'=>$mail->send(),'error'=>$mail->ErrorInfo);
+		catch (phpmailerException $e)
+		{
+			return array('send'=>false,'error'=>$e->errorMessage());
+		}
+		catch (Exception $e)
+		{
+			return array('send'=>false,'error'=>$e->getMessage());
+		}
+		
+		return array('send'=>$result,'error'=>$mail->ErrorInfo);
 	}
 	
 	//Set Connection Timeout | int

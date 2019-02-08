@@ -1,15 +1,17 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     1.9
+ * @version     2.1
  * @author      Stergios Zgouletas <info@web-expert.gr>
  * @link        http://www.web-expert.gr
  * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
  * @license     http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL
 **/
+
 if(!defined("WHMCS")) die("This file cannot be accessed directly");
 
-if(isset($_REQUEST["module"]) && $_REQUEST["module"]=='openAPI' && (int)$_SESSION["adminid"]>0 && strpos($_SERVER["REQUEST_URI"],'addonmodules.php?')!==false && @$_REQUEST["task"]=="ajax"){
+if(isset($_REQUEST["module"]) && $_REQUEST["module"]=='openAPI' && (int)$_SESSION["adminid"]>0 && strpos($_SERVER["REQUEST_URI"],'addonmodules.php?')!==false && @$_REQUEST["task"]=="ajax")
+{
 	require_once('init.php');
 	$api=WOAAPI::getInstance();
 	$response=array('error'=>null,'data'=>null);
