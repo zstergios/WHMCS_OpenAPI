@@ -365,11 +365,10 @@ class WOAAPI
 		try
 		{
 			$mail->isMail();
-			if($whmcs['MailType']!='mail' && !empty($whmcs['SMTPUsername']) && !empty($whmcs['SMTPPassword']))
+			if($whmcs['MailType']=='smtp' && !empty($whmcs['SMTPUsername']) && !empty($whmcs['SMTPPassword']))
 			{
-				$rsp=$this->callAPI(array('action'=>'DecryptPassword','password2'=>$whmcs['SMTPPassword'],'responsetype'=>'json'));
-				$data=json_decode($rsp,true);
-				if($data!==null && $data['result']=='success')
+				$rsp=$this->callAPI(array('action'=>'DecryptPassword','password2'=>$whmcs['SMTPPassword']));
+				if($data['result']=='success')
 				{
 					$mail->SMTPDebug = 0;
 					$mail->isSMTP();
