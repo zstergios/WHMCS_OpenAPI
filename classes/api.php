@@ -122,6 +122,7 @@ class WOAAPI
 	
 	function printJSON($data=array())
 	{
+		http_response_code(200);
 		header('Content-Type: application/json; charset=utf-8',true);
 		exit(json_encode($data));
 	}
@@ -360,15 +361,16 @@ class WOAAPI
 			$plainbody=@iconv(mb_detect_encoding($plainbody),$charset,$plainbody); //plain
 			$body=@iconv(mb_detect_encoding($body),$charset,$body); #html
 		}
+		
+		$isMailDisabled = !function_exists('mail') || in_array('mail', explode(',', ini_get('disable_functions')));				
 				
 		$mail = new PHPMailer(true);
 		try
 		{
-			$mail->isMail();
 			if($whmcs['MailType']=='smtp' && !empty($whmcs['SMTPUsername']) && !empty($whmcs['SMTPPassword']))
 			{
 				$rsp=$this->callAPI(array('action'=>'DecryptPassword','password2'=>$whmcs['SMTPPassword']));
-				if($data['result']=='success')
+				if($rsp['result']=='success')
 				{
 					$mail->SMTPDebug = 0;
 					$mail->isSMTP();
@@ -376,7 +378,7 @@ class WOAAPI
 					$mail->Host=$whmcs['SMTPHost'];
 					$mail->Port=$whmcs['SMTPPort'];
 					$mail->Username=$whmcs['SMTPUsername'];
-					$mail->Password=$data['password'];
+					$mail->Password=$rsp['password'];
 				
 					if(!empty($whmcs['SMTPSSL']))
 					{			
@@ -391,12 +393,17 @@ class WOAAPI
 						)
 					);
 				}
-				else if(!function_exists('mail'))
+				else if($isMailDisabled)
 				{
 					return array('send'=>false,'error'=>'Failed to descrypt SMTP password');
 				}
 			}
-			
+			else if($whmcs['MailType']=='mail')
+			{
+				if($isMailDisabled) return array('send'=>false,'error'=>'Mail() is disabled!');
+				$mail->isMail();
+			}
+						
 			$encodings=array(0=>'8bit',1=>'7bit',2=>'binary',3=>'base64');
 			if(in_array($whmcs['MailEncoding'],$encodings))
 			{
