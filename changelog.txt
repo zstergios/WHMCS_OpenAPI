@@ -1,3 +1,6 @@
+#Version 2.2
+-WOAAPI::sendEmail to email check fix
+
 #Version 2.1
 -WOADB:isNULL() string compare to uppercase
 -WOAAPI::sendEmail add SMTP support with mail() failback

@@ -1,7 +1,7 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     2.1
+ * @version     2.2
  * @author      Stergios Zgouletas <info@web-expert.gr>
  * @link        http://www.web-expert.gr
  * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
@@ -12,7 +12,7 @@ if(!defined("WHMCS")) die("This file cannot be accessed directly");
 class WOAAPI
 {
 	private static $instance;
-	private static $version='2.1';
+	private static $version='2.2';
 	protected $debug=false;
 	protected $db=null;
 	protected $moduleConfig=array();
@@ -330,7 +330,7 @@ class WOAAPI
 	//SendTo Parameter can be string or array $sendTo=array('to'=>array(),'cc'=>array(),'bcc'=>array());
 	public function sendEmail($sendTo,$subject,$body,$frommail='',$fromname='WHMCS System',$AllowHTML=true,$charset="utf-8",$files=array())
 	{
-		if((is_array($sendTo) && !count($sendTo)) || (!is_array($sendTo) && (empty($to) || $this->strpos($to,'@')===false))) return array('send'=>false,'error'=>'No email');
+		if((is_array($sendTo) && !count($sendTo)) || (!is_array($sendTo) && (empty($sendTo) || $this->strpos($sendTo,'@')===false))) return array('send'=>false,'error'=>'No email');
 		
 		if(file_exists(ROOTDIR.'/includes/classes/PHPMailer/PHPMailerAutoload.php'))
 		{
@@ -424,6 +424,7 @@ class WOAAPI
 					{
 						foreach((array)$sendTo[$type] as $email=>$emailName)
 						{
+							$email=trim($email);
 							if($this->strpos($email,'@') === false && $this->strpos($emailName,'@') !== false)
 							{
 								$email=$emailName;
@@ -440,7 +441,7 @@ class WOAAPI
 			else
 			{
 				$emails=@explode(',',$sendTo);
-				foreach($emails as $email) $mail->addAddress($email,'');
+				foreach($emails as $email) $mail->addAddress(trim($email),'');
 			}
 			
 			if(count($files)>0)
