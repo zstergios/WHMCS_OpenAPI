@@ -38,7 +38,7 @@ class WOADB{
 		
 	function __construct()
 	{
-		if(defined("WHMCS")) $this->loadFromConfig('configuration.php');
+		if(defined("WHMCS")) $this->loadFromConfig(ROOTDIR,'configuration.php');
 	}
 	
 	function __destruct()
@@ -46,9 +46,9 @@ class WOADB{
 		$this->close();
 	}
 	
-	public function loadFromConfig($file='configuration.php')
+	public function loadFromConfig($location=ROOTDIR,$file='configuration.php')
 	{
-		$configfile=ROOTDIR.DIRECTORY_SEPARATOR.str_replace(array('..','/'),'',$file); //protection
+		$configfile=str_replace(array('..'),'',$location). DIRECTORY_SEPARATOR. str_replace(array('..','/'),'',$file); //protection
 		if(!file_exists($configfile)) exit($file. " not found at ".$configfile);
 		require($configfile);
 		
