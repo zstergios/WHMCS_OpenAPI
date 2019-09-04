@@ -1,8 +1,8 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     2.2
- * @author      Stergios Zgouletas <info@web-expert.gr>
+ * @version     3.0
+ * @author      Stergios Zgouletas | WEB EXPERT SERVICES LTD <info@web-expert.gr>
  * @link        http://www.web-expert.gr
  * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
  * @license     http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL
@@ -12,7 +12,7 @@ if(!defined("WHMCS")) die("This file cannot be accessed directly");
 class WOAAPI
 {
 	private static $instance;
-	private static $version='2.2';
+	private static $version='3.0';
 	protected $debug=false;
 	protected $db=null;
 	protected $moduleConfig=array();
@@ -122,7 +122,7 @@ class WOAAPI
 	
 	function printJSON($data=array())
 	{
-		http_response_code(200);
+		http_response_code(200); //for HTTP 2
 		header('Content-Type: application/json; charset=utf-8',true);
 		exit(json_encode($data));
 	}
@@ -288,7 +288,7 @@ class WOAAPI
 		$this->whmcsconfig['SystemURL']=rtrim($this->whmcsconfig['SystemURL'],'/').'/';
 		
 		if(!empty($key) && $key=='SystemSSLURL' && empty($this->whmcsconfig[$key])) $key='SystemURL';
-		if(!empty($key) && is_array($this->whmcsconfig) && isset($this->whmcsconfig[$key])) return $this->whmcsconfig[$key];
+		if(!empty($key) && is_array($this->whmcsconfig)) return isset($this->whmcsconfig[$key])?$this->whmcsconfig[$key]:NULL;
 		return $this->whmcsconfig;
 	}
 	

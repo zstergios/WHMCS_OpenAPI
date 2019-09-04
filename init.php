@@ -1,8 +1,8 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     2.2
- * @author      Stergios Zgouletas <info@web-expert.gr>
+ * @version     3.0
+ * @author      Stergios Zgouletas | WEB EXPERT SERVICES LTD <info@web-expert.gr>
  * @link        http://www.web-expert.gr
  * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
  * @license     http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL

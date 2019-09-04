@@ -1,8 +1,8 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     2.2
- * @author      Stergios Zgouletas <info@web-expert.gr>
+ * @version     3.0
+ * @author      Stergios Zgouletas | WEB EXPERT SERVICES LTD <info@web-expert.gr>
  * @link        http://www.web-expert.gr
  * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
  * @license     http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL
@@ -25,28 +25,34 @@ class WOAForms{
 		return self::$instance;
 	}
 	
-	public function setAddon($addon){
+	public function setAddon($addon)
+	{
 		$this->addon=$addon;
 		$this->addonPath=ROOTDIR.'/modules/addons/'.$this->addon;
 		$this->addonLink='addonmodules.php?module='.$this->addon;
 	}
 	
-	public function getAddon(){
+	public function getAddon()
+	{
 		return $this->addon;
 	}
 	
-	public function getAddonPath(){
+	public function getAddonPath()
+	{
 		return $this->addonPath;
 	}
 	
-	public function getAddonLink(){
+	public function getAddonLink()
+	{
 		return $this->addonLink;
 	}
 	
-	public function load($view){
+	public function load($view)
+	{
 		$page=$this->addonPath.DIRECTORY_SEPARATOR.'pages'.DIRECTORY_SEPARATOR.strtolower($view).".php";
 		$function="Page".ucfirst(strtolower($view));
-		if(file_exists($page)){
+		if(file_exists($page))
+		{
 			require_once($page);
 			$classname= ucfirst(strtolower($view))."Forms";
 			$pageclass = new $classname();
@@ -57,7 +63,8 @@ class WOAForms{
 		return $this->$function();
 	}
 	
-	public function pagination($total,$limit=30,$link,$activePage=1,$sep=''){
+	public function pagination($total,$limit=30,$link,$activePage=1,$sep='')
+	{
 		$pagination=array();
 		$pages=1;
 		if($total>$limit){
@@ -94,7 +101,8 @@ class WOAForms{
 		return implode($sep,$pagination);
 	}
 	
-	public function tabber($tabs){
+	public function tabber($tabs)
+	{
 		if(!is_array($tabs)) return '';
 		$js='<script>$(document).ready(function(){
 		$(".tabbox").css("display","none");
