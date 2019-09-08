@@ -1,7 +1,7 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     3.0
+ * @version     3.0.1
  * @author      Stergios Zgouletas | WEB EXPERT SERVICES LTD <info@web-expert.gr>
  * @link        http://www.web-expert.gr
  * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
@@ -20,6 +20,7 @@ class WOADB{
 	public $counter=0;
 	protected $last_query=null;
 	protected $enableErrors=0;
+	public $enableExplain=0;
 	protected $sql_query='';
 	
 	//DB
@@ -328,7 +329,7 @@ class WOADB{
 			$wh=array();
 			foreach($where as $key=>$value)
 			{
-				$wh[]=$this->quoteField($key).$this->getValueStatement($value);
+				$set[]=$this->quoteField($key).'='.($this->isNULL($value)?'NULL':$this->quoteValue($value));
 			}
 			$wh=@implode(' AND ',$wh);
 		}

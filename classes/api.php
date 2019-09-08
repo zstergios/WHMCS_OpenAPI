@@ -12,7 +12,7 @@ if(!defined("WHMCS")) die("This file cannot be accessed directly");
 class WOAAPI
 {
 	private static $instance;
-	private static $version='3.0';
+	private static $version='3.0.1';
 	protected $debug=false;
 	protected $db=null;
 	protected $moduleConfig=array();
