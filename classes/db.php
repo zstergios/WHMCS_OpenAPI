@@ -63,16 +63,19 @@ class WOADB{
 		$this->dbpass = isset($db_password)? $db_password : (isset($dbpass)?$dbpass:NULL);
 		$this->charset = isset($mysql_charset)? $mysql_charset : (isset($charset)?$charset:NULL);
 		
+		$this->close(); //close previous connection if exists
 		$this->connect();
 	}
 	
 	public function setConnection($host,$dbname,$dbuser,$dbpass=NULL,$charset=NULL)
-	{
+	{		
 		$this->host=$host;
 		$this->dbname=$dbname;
 		$this->dbuser=$dbuser;
 		$this->dbpass=$dbpass;
 		$this->charset=$charset;
+		
+		$this->close(); //close previous connection if exists
 		$this->connect();
 	}
 	
@@ -419,7 +422,7 @@ class WOADB{
 		return (int)@mysql_affected_rows($this->conn);
 	}
 	
-	//Get error
+	//Get error message
 	public function error($rs=null)
 	{
 		if($this->useMysqli)
@@ -427,6 +430,16 @@ class WOADB{
 		else
 			return @mysql_error($this->conn);
 	}
+	
+	//Get error number
+	public function errno($rs=null)
+	{
+		if($this->useMysqli)
+			return mysqli_errno($this->conn);
+		else
+			return @mysql_errno($this->conn);
+	}
+	
 	
 	//close connection
 	public function close()
