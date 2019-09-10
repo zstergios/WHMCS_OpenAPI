@@ -261,21 +261,7 @@ class WOADB{
 	{
 		return $this->query($this->buildSQL($table,$select,$where));
 	}
-	
-	
-	private function getValueStatement($value)
-	{
-		if(is_array($value))
-		{
-			$data=array_map(array($this, 'safe'), $value);
-			return ' IN ('.implode(',',$data).')';
-		}
-		else
-		{
-			return $this->isNULL($value)?' is NULL':' = '.$this->quoteValue($value);
-		}
-	}
-	
+		
 	//Delete Row
 	public function delete($table,$where=array()){
 		if(empty($table)) return false;
@@ -295,7 +281,7 @@ class WOADB{
 	}
 	
 	//Insert Row
-	public function insert($table,$fields=array())
+	public function insert($table,array $fields=array())
 	{
 		if(empty($table) || !count($fields)) return false;
 		$values=$columns=array();
@@ -306,21 +292,17 @@ class WOADB{
 		}
 		return $this->query('INSERT IGNORE INTO `'.$table.'`('.implode(',',$columns).') VALUES('.implode(',',$values).');');
 	}
-	
-	private function isNULL($value)
-	{
-		return (!is_numeric($value) && ($value===NULL || strtoupper($value)=='NULL'))?true:false;
-	}
-	
+		
 	//Update Row
-	public function update($table,$fields=array(),$where=array())
+	public function update($table,array $fields=array(),$where=array())
 	{
 		if(empty($table) || !count($fields)) return false;
 		$set=array();
 
 		foreach($fields as $key=>$value)
 		{
-			$set[]=$this->quoteField($key).$this->getValueStatement($value);
+			$newValue=$this->isNULL($value)?'NULL': $this->quoteValue($value);
+			$set[]=$this->quoteField($key).'='.$newValue;
 		}
 		
 		$wh=$where;
@@ -329,7 +311,7 @@ class WOADB{
 			$wh=array();
 			foreach($where as $key=>$value)
 			{
-				$set[]=$this->quoteField($key).'='.($this->isNULL($value)?'NULL':$this->quoteValue($value));
+				$wh[]=$this->quoteField($key).$this->getValueStatement($value);
 			}
 			$wh=@implode(' AND ',$wh);
 		}
@@ -459,8 +441,26 @@ class WOADB{
 		}
 	}
 	
+	protected function isNULL($value)
+	{
+		return (!is_numeric($value) && ($value===NULL || strtoupper($value)=='NULL'))?true:false;
+	}
+	
+	protected function getValueStatement($value)
+	{
+		if(is_array($value))
+		{
+			$data=array_map(array($this, 'safe'), $value);
+			return ' IN ('.implode(',',$data).')';
+		}
+		else
+		{
+			return $this->isNULL($value)?' is NULL':' = '.$this->quoteValue($value);
+		}
+	}
+	
 	/*
-		Import SQL data
+		Import SQL data from File
 	*/
 	public function source_query($dbms_schema)
 	{

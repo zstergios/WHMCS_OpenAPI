@@ -1,3 +1,6 @@
+#Version 3.0.1
+-WOADB:update() function fix on NULL values
+
 #Version 3.0
 -WOADB: Lot improvements
 - With simple changes you can use this class to any custom project
