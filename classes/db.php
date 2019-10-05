@@ -244,7 +244,7 @@ class WOADB{
 	
 	
 	//Build SQL
-	public function buildSQL($table,$select='*',$where=array())
+	public function buildSQL($table,$select='*',$where=array(),$orderby='',$limit='')
 	{
 		if(empty($table)) return false;
 		$wh=$where;
@@ -256,17 +256,19 @@ class WOADB{
 		}
 		
 		if(is_array($select)) $select=implode(', ',$select);
-		return 'SELECT '.$select.' FROM '.$this->quoteField($table).' WHERE '.$wh.';';
+		if(!empty($wh)) $wh=' WHERE '.$wh;
+		return 'SELECT '.$select.' FROM '.$this->quoteField($table).trim($wh.' '.$orderby.' '.$limit).';';
 	}
 	
 	//Select Row
-	public function select($table,$select='*',$where=array())
+	public function select($table,$select='*',$where=array(),$orderby='',$limit='')
 	{
-		return $this->query($this->buildSQL($table,$select,$where));
+		return $this->query($this->buildSQL($table,$select,$where,$orderby,$limit));
 	}
 		
 	//Delete Row
-	public function delete($table,$where=array()){
+	public function delete($table,$where=array())
+	{
 		if(empty($table)) return false;
 		$wh=$where;
 		if(is_array($where))
@@ -484,7 +486,8 @@ class WOADB{
 		$sql_query = $this->remove_remarks($sql_query);
 		$sql_query = $this->split_sql_file($sql_query, ';');
 		
-		foreach($sql_query as $sql){
+		foreach($sql_query as $sql)
+		{
 			$this->query($sql);
 		}
 	}

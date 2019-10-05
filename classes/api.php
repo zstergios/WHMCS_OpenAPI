@@ -1,7 +1,7 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     3.0.1
+ * @version     3.0.2
  * @author      Stergios Zgouletas | WEB EXPERT SERVICES LTD <info@web-expert.gr>
  * @link        http://www.web-expert.gr
  * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
@@ -12,7 +12,7 @@ if(!defined("WHMCS")) die("This file cannot be accessed directly");
 class WOAAPI
 {
 	private static $instance;
-	private static $version='3.0.1';
+	private static $version='3.0.2';
 	protected $debug=false;
 	protected $db=null;
 	protected $moduleConfig=array();
@@ -361,6 +361,8 @@ class WOAAPI
 			$plainbody=@iconv(mb_detect_encoding($plainbody),$charset,$plainbody); //plain
 			$body=@iconv(mb_detect_encoding($body),$charset,$body); #html
 		}
+		
+		$body='<style>'.$whmcs["EmailCSS"].'</style>'.$body;
 		
 		$isMailDisabled = !function_exists('mail') || in_array('mail', explode(',', ini_get('disable_functions')));				
 				

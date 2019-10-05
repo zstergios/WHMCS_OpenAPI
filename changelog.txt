@@ -1,3 +1,7 @@
+#Version 3.0.2
+-WOADB:buildSQL() order & limit params
+-WOAPI:sendEmail() send Email include the WHMCS css
+
 #Version 3.0.1
 -WOADB:update() function fix on NULL values
 
