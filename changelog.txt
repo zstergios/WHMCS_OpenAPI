@@ -1,3 +1,6 @@
+#Version 3.0.3
+-WHMCS 7.9 PHPMailer
+
 #Version 3.0.2
 -WOADB:buildSQL() order & limit params
 -WOAPI:sendEmail() send Email include the WHMCS css

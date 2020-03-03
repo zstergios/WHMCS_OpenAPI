@@ -1,7 +1,7 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     3.0.2
+ * @version     3.0.3
  * @author      Stergios Zgouletas | WEB EXPERT SERVICES LTD <info@web-expert.gr>
  * @link        http://www.web-expert.gr
  * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
@@ -12,7 +12,7 @@ if(!defined("WHMCS")) die("This file cannot be accessed directly");
 class WOAAPI
 {
 	private static $instance;
-	private static $version='3.0.2';
+	private static $version='3.0.3';
 	protected $debug=false;
 	protected $db=null;
 	protected $moduleConfig=array();
@@ -332,20 +332,28 @@ class WOAAPI
 	{
 		if((is_array($sendTo) && !count($sendTo)) || (!is_array($sendTo) && (empty($sendTo) || $this->strpos($sendTo,'@')===false))) return array('send'=>false,'error'=>'No email');
 		
-		if(file_exists(ROOTDIR.'/includes/classes/PHPMailer/PHPMailerAutoload.php'))
-		{
-			require_once(ROOTDIR.'/includes/classes/PHPMailer/PHPMailerAutoload.php');
-		}
-		else
-		{
-			require_once(ROOTDIR.'/vendor/phpmailer/phpmailer/PHPMailerAutoload.php');
-		}
-		
 		if(!class_exists('PHPMailer'))
 		{
-			 return array('send'=>false,'error'=>'PHPMailer not found');
+			if(file_exists(ROOTDIR.'/includes/classes/PHPMailer/PHPMailerAutoload.php'))
+			{
+				require_once(ROOTDIR.'/includes/classes/PHPMailer/PHPMailerAutoload.php');
+			}
+			elseif(file_exists(ROOTDIR.'/vendor/phpmailer/phpmailer/PHPMailerAutoload.php'))
+			{
+				require_once(ROOTDIR.'/vendor/phpmailer/phpmailer/PHPMailerAutoload.php');
+			}
+			elseif(file_exists(ROOTDIR.'/vendor/phpmailer/phpmailer/src/PHPMailer.php'))
+			{
+				require_once(ROOTDIR.'/vendor/phpmailer/phpmailer/src/PHPMailer.php');
+				require_once(ROOTDIR.'/vendor/phpmailer/phpmailer/src/SMTP.php');
+				require_once(ROOTDIR.'/vendor/phpmailer/phpmailer/src/Exception.php');
+			}
+			else
+			{
+				 return array('send'=>false,'error'=>'PHPMailer not found');	
+			}
 		}
-		
+				
 		$whmcs=$this->getWhmcsConfig();
 		if($frommail=='')
 		{

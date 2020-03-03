@@ -186,6 +186,18 @@ class WOADB{
 		return '"'.$this->safe($n).'"';
 	}
 	
+	//Get Tables
+	public function getTables()
+	{
+		$rs = $this->query('SHOW TABLES FROM '.$this->quoteField($this->dbname));
+		$tables=array();
+		while ($row = $this->fetch_array($rs,'MYSQL_NUM'))
+		{
+			$tables[]=$row[0];
+		}
+		return $tables;
+	}
+	
 	//Get columns
 	public function getColumns($table)
 	{
@@ -257,8 +269,9 @@ class WOADB{
 		
 		if(is_array($select)) $select=implode(', ',$select);
 		if(!empty($wh)) $wh=' WHERE '.$wh;
-		return 'SELECT '.$select.' FROM '.$this->quoteField($table).trim($wh.' '.$orderby.' '.$limit).';';
+		return 'SELECT '.$select.' FROM '.$this->quoteField($table).$wh.' '.$orderby.' '.$limit.';';
 	}
+	
 	
 	//Select Row
 	public function select($table,$select='*',$where=array(),$orderby='',$limit='')
