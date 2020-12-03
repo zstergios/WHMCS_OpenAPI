@@ -1,5 +1,12 @@
+#Version 3.0.5
+Mailer fix WHMCS 8 - SMTP
+
+#Version 3.0.5
+Mailer fix WHMCS 7
+
+#Version 3.0.4
 #Version 3.0.3
--WHMCS 7.9 PHPMailer
+-WHMCS 7.9 PHPMailer Fix (again)
 
 #Version 3.0.2
 -WOADB:buildSQL() order & limit params

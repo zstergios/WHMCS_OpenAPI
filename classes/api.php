@@ -1,7 +1,7 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     3.0.3
+ * @version     3.0.6
  * @author      Stergios Zgouletas | WEB EXPERT SERVICES LTD <info@web-expert.gr>
  * @link        http://www.web-expert.gr
  * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
@@ -9,10 +9,17 @@
 **/
 if(!defined("WHMCS")) die("This file cannot be accessed directly");
 
+//WHMCS 7.9
+use WHMCS;
+//use WHMCS\Mail\PHPMailer as WhmcsMailer;
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\SMTP;
+use PHPMailer\PHPMailer\Exception;
+
 class WOAAPI
 {
 	private static $instance;
-	private static $version='3.0.3';
+	private static $version='3.0.6';
 	protected $debug=false;
 	protected $db=null;
 	protected $moduleConfig=array();
@@ -124,7 +131,8 @@ class WOAAPI
 	{
 		http_response_code(200); //for HTTP 2
 		header('Content-Type: application/json; charset=utf-8',true);
-		exit(json_encode($data));
+		echo json_encode($data);
+		exit();
 	}
 	
 	public static function redirect($url,$seconds=0)
@@ -327,40 +335,156 @@ class WOAAPI
 		return preg_replace("/($needle)/i",sprintf('<span style="color:%s;">$1</span>',$color),$haystack);
 	}
 	
+	function mailFailback($sendTo,$subject,$body,$frommail='',$fromname='WHMCS System',$charset="utf-8")
+	{
+		$headers  = "From: ".$fromname." <".$frommail.">\n";
+		$headers .= 'X-Mailer: PHP/' . phpversion();
+		$headers .= "X-Priority: 1\n"; // Urgent message!
+		$headers .= "Return-Path: ".$frommail."\n"; // Return path for errors
+		$headers .= "MIME-Version: 1.0\r\n";
+		$headers .= "Content-Type: text/html; charset=".$charset."\n";
+		return mail($sendTo,$subject,$body,$headers);
+	}
+	
+	function getMailer($name='',$email='')
+	{
+		require_once(ROOTDIR.'/vendor/autoload.php');
+
+		if(class_exists('\Mail'))
+		{
+			$mail=new \Mail($name,$email);
+			return $mail;
+		}
+		else if(class_exists('WHMCS\Mail'))
+		{
+			$mail=new WHMCS\Mail($name,$email);
+			return $mail;
+		}
+		else if(class_exists('\WHMCS\Mail\PHPMailer'))
+		{
+			$mail=new WHMCS\Mail\PHPMailer($name,$email);
+			return $mail;
+		}
+		
+		$mail=class_exists('PHPMailer')?new PHPMailer(true):false;
+		
+		if(file_exists(ROOTDIR.'/includes/classes/PHPMailer/PHPMailerAutoload.php'))
+		{
+			require_once(ROOTDIR.'/includes/classes/PHPMailer/PHPMailerAutoload.php');
+			$mail = new PHPMailer(true);
+		}
+		elseif(file_exists(ROOTDIR.'/vendor/phpmailer/phpmailer/PHPMailerAutoload.php'))
+		{
+			require_once(ROOTDIR.'/vendor/phpmailer/phpmailer/PHPMailerAutoload.php');
+			$mail = new \PHPMailer(true);
+		}
+		elseif(file_exists(ROOTDIR.'/vendor/autoload.php'))
+		{
+			require_once(ROOTDIR.'/vendor/autoload.php');
+			if(class_exists('PHPMailer\PHPMailer\PHPMailer')) 
+			{
+				$mail = new PHPMailer\PHPMailer\PHPMailer(true);
+			}
+		}
+				
+		if($mail===false)
+		{
+			return false;	
+		}
+		
+		$whmcs=$this->getWhmcsConfig();
+		
+		if($whmcs['MailType']=='mail')
+		{
+			$mail->isMail();
+		}
+		else if($whmcs['MailType']=='smtp')
+		{
+			
+			$hostname = $mail->serverHostname();
+			$hostname=$mail::isValidHost($hostname);
+			
+			if( !$hostname || ($hostname = "localhost.localdomain") ) 
+			{
+				$hostname = parse_url($whmcs['SystemURL'], PHP_URL_HOST);
+			}
+			
+			$mail->isSMTP();
+			$mail->SMTPAutoTLS = false;
+			$mail->SMTPDebug = 0;
+			$mail->Host=$whmcs['SMTPHost'];
+			$mail->Port=$whmcs['SMTPPort'];
+			$mail->Hostname = $hostname;
+			
+			if(!empty($whmcs['SMTPSSL']))
+			{
+				$mail->SMTPSecure =$whmcs['SMTPSSL'];
+			}
+				
+			$mail->SMTPOptions = array(
+				'ssl' => array(
+					'verify_peer' => false,
+					'verify_peer_name' => false,
+					'allow_self_signed' => true
+				)
+			);
+				
+			if(!empty($whmcs['SMTPUsername']))
+			{
+				$mail->SMTPAuth = true;
+				$mail->Username=$whmcs['SMTPUsername'];
+				if(!empty($whmcs['SMTPPassword']))
+				{
+					$rsp=$this->callAPI(array('action'=>'DecryptPassword','password2'=>$whmcs['SMTPPassword']));
+					if($rsp['result']=='success')
+					{
+						$mail->Password=$rsp['password'];
+					}
+					else
+					{
+						return false;
+					}
+				}
+			}
+		}
+
+		$encodings=array(0=>'8bit',1=>'7bit',2=>'binary',3=>'base64');
+		if(in_array($whmcs['MailEncoding'],$encodings))
+		{
+			$mail->Encoding=$encodings[$whmcs['MailEncoding']];
+		}
+		
+		if($email=='') $email=trim($whmcs["SystemEmailsFromEmail"]);
+		if($name=='') $name=trim($whmcs["SystemEmailsFromName"]);
+		$mail->setFrom($email,$name);
+		return $mail;
+	}
+	
+	protected function serverHostname()
+    {
+        $result = '';
+        if (isset($_SERVER) && array_key_exists('SERVER_NAME', $_SERVER))
+		{
+            $result = $_SERVER['SERVER_NAME'];
+        }
+		elseif (function_exists('gethostname') && gethostname() !== false)
+		{
+            $result = gethostname();
+        }
+		elseif(php_uname('n') !== false)
+		{
+            $result = php_uname('n');
+        }
+        return $result;
+    }
+	
 	//SendTo Parameter can be string or array $sendTo=array('to'=>array(),'cc'=>array(),'bcc'=>array());
 	public function sendEmail($sendTo,$subject,$body,$frommail='',$fromname='WHMCS System',$AllowHTML=true,$charset="utf-8",$files=array())
 	{
 		if((is_array($sendTo) && !count($sendTo)) || (!is_array($sendTo) && (empty($sendTo) || $this->strpos($sendTo,'@')===false))) return array('send'=>false,'error'=>'No email');
 		
-		if(!class_exists('PHPMailer'))
-		{
-			if(file_exists(ROOTDIR.'/includes/classes/PHPMailer/PHPMailerAutoload.php'))
-			{
-				require_once(ROOTDIR.'/includes/classes/PHPMailer/PHPMailerAutoload.php');
-			}
-			elseif(file_exists(ROOTDIR.'/vendor/phpmailer/phpmailer/PHPMailerAutoload.php'))
-			{
-				require_once(ROOTDIR.'/vendor/phpmailer/phpmailer/PHPMailerAutoload.php');
-			}
-			elseif(file_exists(ROOTDIR.'/vendor/phpmailer/phpmailer/src/PHPMailer.php'))
-			{
-				require_once(ROOTDIR.'/vendor/phpmailer/phpmailer/src/PHPMailer.php');
-				require_once(ROOTDIR.'/vendor/phpmailer/phpmailer/src/SMTP.php');
-				require_once(ROOTDIR.'/vendor/phpmailer/phpmailer/src/Exception.php');
-			}
-			else
-			{
-				 return array('send'=>false,'error'=>'PHPMailer not found');	
-			}
-		}
-				
 		$whmcs=$this->getWhmcsConfig();
-		if($frommail=='')
-		{
-			$frommail=trim($whmcs["SystemEmailsFromEmail"]);
-			$fromname=trim($whmcs["SystemEmailsFromName"]);
-		}
-		
+
 		$plainbody= strip_tags(preg_replace("/<br(.*)>|<newline>/iU", "\n", str_replace("</p>","</p><newline>", $body)) );
 		
 		#Multi-Language Support
@@ -372,56 +496,13 @@ class WOAAPI
 		
 		$body='<style>'.$whmcs["EmailCSS"].'</style>'.$body;
 		
-		$isMailDisabled = !function_exists('mail') || in_array('mail', explode(',', ini_get('disable_functions')));				
-				
-		$mail = new PHPMailer(true);
+		
 		try
 		{
-			if($whmcs['MailType']=='smtp' && !empty($whmcs['SMTPUsername']) && !empty($whmcs['SMTPPassword']))
-			{
-				$rsp=$this->callAPI(array('action'=>'DecryptPassword','password2'=>$whmcs['SMTPPassword']));
-				if($rsp['result']=='success')
-				{
-					$mail->SMTPDebug = 0;
-					$mail->isSMTP();
-					$mail->SMTPAuth = true;
-					$mail->Host=$whmcs['SMTPHost'];
-					$mail->Port=$whmcs['SMTPPort'];
-					$mail->Username=$whmcs['SMTPUsername'];
-					$mail->Password=$rsp['password'];
-				
-					if(!empty($whmcs['SMTPSSL']))
-					{			
-						$mail->SMTPSecure =$whmcs['SMTPSSL'];
-					}
-					
-					$mail->SMTPOptions = array(
-						'ssl' => array(
-							'verify_peer' => false,
-							'verify_peer_name' => false,
-							'allow_self_signed' => true
-						)
-					);
-				}
-				else if($isMailDisabled)
-				{
-					return array('send'=>false,'error'=>'Failed to descrypt SMTP password');
-				}
-			}
-			else if($whmcs['MailType']=='mail')
-			{
-				if($isMailDisabled) return array('send'=>false,'error'=>'Mail() is disabled!');
-				$mail->isMail();
-			}
-						
-			$encodings=array(0=>'8bit',1=>'7bit',2=>'binary',3=>'base64');
-			if(in_array($whmcs['MailEncoding'],$encodings))
-			{
-				$mail->Encoding=$encodings[$whmcs['MailEncoding']];
-			}
-		
+			$mail = $this->getMailer();
+			if($mail===false) return array('send'=>false,'error'=>'PHPMailer not found');	
+			
 			$mail->CharSet=$charset;
-			$mail->setFrom($frommail,$fromname);
 			$mail->Subject = $subject;
 			if($AllowHTML) $mail->msgHTML($body);
 			$mail->AltBody =$plainbody;
