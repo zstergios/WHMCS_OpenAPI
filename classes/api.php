@@ -1,7 +1,7 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     3.0.6
+ * @version     3.0.7
  * @author      Stergios Zgouletas | WEB EXPERT SERVICES LTD <info@web-expert.gr>
  * @link        http://www.web-expert.gr
  * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
@@ -19,7 +19,7 @@ use PHPMailer\PHPMailer\Exception;
 class WOAAPI
 {
 	private static $instance;
-	private static $version='3.0.6';
+	private static $version='3.0.7';
 	protected $debug=false;
 	protected $db=null;
 	protected $moduleConfig=array();
@@ -337,6 +337,10 @@ class WOAAPI
 	
 	function mailFailback($sendTo,$subject,$body,$frommail='',$fromname='WHMCS System',$charset="utf-8")
 	{
+		$whmcs=$this->getWhmcsConfig();
+		if($frommail=='') $frommail=trim($whmcs["SystemEmailsFromEmail"]);
+		if($fromname=='') $fromname=trim($whmcs["SystemEmailsFromName"]);
+		
 		$headers  = "From: ".$fromname." <".$frommail.">\n";
 		$headers .= 'X-Mailer: PHP/' . phpversion();
 		$headers .= "X-Priority: 1\n"; // Urgent message!
@@ -400,10 +404,25 @@ class WOAAPI
 		}
 		else if($whmcs['MailType']=='smtp')
 		{
+			if(isset($whmcs['MailConfig']) && !empty($whmcs['MailConfig']))
+			{
+				$mailConfig=json_decode(decrypt($whmcs['MailConfig']),true);
+				$whmcs['MailEncoding']=$mailConfig['configuration']['encoding'];
+				$whmcs['SMTPPassword']=$mailConfig['configuration']['password'];
+				$whmcs['SMTPUsername']=$mailConfig['configuration']['username'];
+				$whmcs['SMTPHost']=$mailConfig['configuration']['host'];
+				$whmcs['SMTPPort']=$mailConfig['configuration']['port'];
+				$whmcs['SMTPSSL']=$mailConfig['configuration']['secure'];
+				$whmcs['SMTPDebug']=(int)$mailConfig['configuration']['debug'];
+			}
+			else
+			{
+				$whmcs['SMTPDebug']=0;
+				$whmcs['SMTPPassword']=decrypt($whmcs['SMTPPassword']);
+			}
 			
-			$hostname = $mail->serverHostname();
-			$hostname=$mail::isValidHost($hostname);
-			
+			$hostname = $this->serverHostname();
+			$hostname=PHPMailer::isValidHost($hostname);
 			if( !$hostname || ($hostname = "localhost.localdomain") ) 
 			{
 				$hostname = parse_url($whmcs['SystemURL'], PHP_URL_HOST);
@@ -428,23 +447,12 @@ class WOAAPI
 					'allow_self_signed' => true
 				)
 			);
-				
+			
 			if(!empty($whmcs['SMTPUsername']))
 			{
 				$mail->SMTPAuth = true;
 				$mail->Username=$whmcs['SMTPUsername'];
-				if(!empty($whmcs['SMTPPassword']))
-				{
-					$rsp=$this->callAPI(array('action'=>'DecryptPassword','password2'=>$whmcs['SMTPPassword']));
-					if($rsp['result']=='success')
-					{
-						$mail->Password=$rsp['password'];
-					}
-					else
-					{
-						return false;
-					}
-				}
+				if(!empty($whmcs['SMTPPassword'])) $mail->Password=$whmcs['SMTPPassword'];
 			}
 		}
 
@@ -457,6 +465,8 @@ class WOAAPI
 		if($email=='') $email=trim($whmcs["SystemEmailsFromEmail"]);
 		if($name=='') $name=trim($whmcs["SystemEmailsFromName"]);
 		$mail->setFrom($email,$name);
+		
+		unset($whmcs);
 		return $mail;
 	}
 	
@@ -484,7 +494,6 @@ class WOAAPI
 		if((is_array($sendTo) && !count($sendTo)) || (!is_array($sendTo) && (empty($sendTo) || $this->strpos($sendTo,'@')===false))) return array('send'=>false,'error'=>'No email');
 		
 		$whmcs=$this->getWhmcsConfig();
-
 		$plainbody= strip_tags(preg_replace("/<br(.*)>|<newline>/iU", "\n", str_replace("</p>","</p><newline>", $body)) );
 		
 		#Multi-Language Support
@@ -500,7 +509,16 @@ class WOAAPI
 		try
 		{
 			$mail = $this->getMailer();
-			if($mail===false) return array('send'=>false,'error'=>'PHPMailer not found');	
+			if($mail===false)
+			{
+				$isMailDisabled = !function_exists('mail') || in_array('mail', explode(',', ini_get('disable_functions')));				
+				if(!$isMailDisabled)
+				{
+					$isSend=$this->mailFailback($sendTo,$subject,$body,$frommail,$fromname,$charset);
+					if($isSend) return array('failback'=>true,'send'=>true,'error'=>'');
+				}
+				return array('coreerror'=>true,'send'=>false,'error'=>'PHPMailer not found');	
+			}
 			
 			$mail->CharSet=$charset;
 			$mail->Subject = $subject;
