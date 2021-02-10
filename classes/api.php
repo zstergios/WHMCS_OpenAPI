@@ -10,8 +10,7 @@
 if(!defined("WHMCS")) die("This file cannot be accessed directly");
 
 //WHMCS 7.9
-use WHMCS;
-//use WHMCS\Mail\PHPMailer as WhmcsMailer;
+use WHMCS\Mail;
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
 use PHPMailer\PHPMailer\Exception;
@@ -19,7 +18,7 @@ use PHPMailer\PHPMailer\Exception;
 class WOAAPI
 {
 	private static $instance;
-	private static $version='3.0.7';
+	private static $version='3.0.8';
 	protected $debug=false;
 	protected $db=null;
 	protected $moduleConfig=array();
@@ -126,7 +125,7 @@ class WOAAPI
 		$rs = localAPI($values["action"],$values,$username);
 		return $rs;
 	}
-	
+		
 	function printJSON($data=array())
 	{
 		http_response_code(200); //for HTTP 2
@@ -319,7 +318,7 @@ class WOAAPI
 	
 	public function setModuleParams($name,$value='',$module)
 	{
-		$this->db->query('UPDATE `tbladdonmodules` SET value='.$this->db->quoteValue($value).' WHERE setting='.$this->db->quoteValue($name).' AND module='.$this->db->quoteValue($module).';');
+		$this->db->query('UPDATE `tbladdonmodules` SET `value`='.$this->db->quoteValue($value).' WHERE `setting`='.$this->db->quoteValue($name).' AND `module`='.$this->db->quoteValue($module).';');
 		$this->moduleConfig[$module][$name]=$value;
 	}
 	
@@ -333,6 +332,13 @@ class WOAAPI
 	function highlightKeyword($haystack,$needle,$color = "#daa732")
 	{
 		return preg_replace("/($needle)/i",sprintf('<span style="color:%s;">$1</span>',$color),$haystack);
+	}
+	
+	public function decrypt($pass)
+	{
+		if(function_exists('decrypt')) return decrypt($pass);
+		$rsp=$this->localAPI('DecryptPassword',array('password2'=>$pass));
+		return $rsp['result']=='success'?$rsp['password']:'';
 	}
 	
 	function mailFailback($sendTo,$subject,$body,$frommail='',$fromname='WHMCS System',$charset="utf-8")
@@ -352,7 +358,7 @@ class WOAAPI
 	
 	function getMailer($name='',$email='')
 	{
-		require_once(ROOTDIR.'/vendor/autoload.php');
+		if(file_exists(ROOTDIR.'/vendor/autoload.php')) require_once(ROOTDIR.'/vendor/autoload.php');
 
 		if(class_exists('\Mail'))
 		{
@@ -387,7 +393,7 @@ class WOAAPI
 			require_once(ROOTDIR.'/vendor/autoload.php');
 			if(class_exists('PHPMailer\PHPMailer\PHPMailer')) 
 			{
-				$mail = new PHPMailer\PHPMailer\PHPMailer(true);
+				$mail = new \PHPMailer\PHPMailer\PHPMailer(true);
 			}
 		}
 				
@@ -406,7 +412,7 @@ class WOAAPI
 		{
 			if(isset($whmcs['MailConfig']) && !empty($whmcs['MailConfig']))
 			{
-				$mailConfig=json_decode(decrypt($whmcs['MailConfig']),true);
+				$mailConfig=json_decode($this->decrypt($whmcs['MailConfig']),true);
 				$whmcs['MailEncoding']=$mailConfig['configuration']['encoding'];
 				$whmcs['SMTPPassword']=$mailConfig['configuration']['password'];
 				$whmcs['SMTPUsername']=$mailConfig['configuration']['username'];
@@ -418,7 +424,7 @@ class WOAAPI
 			else
 			{
 				$whmcs['SMTPDebug']=0;
-				$whmcs['SMTPPassword']=decrypt($whmcs['SMTPPassword']);
+				$whmcs['SMTPPassword']=$this->decrypt($whmcs['SMTPPassword']);
 			}
 			
 			$hostname = $this->serverHostname();

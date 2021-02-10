@@ -49,10 +49,7 @@ class WOADB{
 	
 	public function loadFromConfig($location=ROOTDIR,$file='configuration.php')
 	{
-		//security check
-		$pattern = '/^[A-Za-z0-9_\/-]+[A-Za-z0-9_\.-]*([\\\\\/][A-Za-z0-9_-]+[A-Za-z0-9_\.-]*)*$/';
-		preg_match($pattern,$location.DIRECTORY_SEPARATOR.$file, $matches);
-		$configfile = isset($matches[0]) ? (string) $matches[0] : '';
+		$configfile = $location.DIRECTORY_SEPARATOR.$file;
 		
 		if(empty($configfile) || !file_exists($configfile)) exit($file. " not found at ".$configfile);
 		require($configfile);

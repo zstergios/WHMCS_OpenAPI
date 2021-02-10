@@ -1,3 +1,8 @@
+#Version 3.0.8
+WOAAPI::getMailer fix WHMCS 8
+WOADB:loadFromConfig - Fix Path for Windows
+WOAAPI::Decrypt shortcut function
+
 #Version 3.0.5
 Mailer fix WHMCS 8 - SMTP
 
