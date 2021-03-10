@@ -1,7 +1,7 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     3.0.7
+ * @version     3.0.9
  * @author      Stergios Zgouletas | WEB EXPERT SERVICES LTD <info@web-expert.gr>
  * @link        http://www.web-expert.gr
  * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
@@ -18,7 +18,7 @@ use PHPMailer\PHPMailer\Exception;
 class WOAAPI
 {
 	private static $instance;
-	private static $version='3.0.8';
+	private static $version='3.0.9';
 	protected $debug=false;
 	protected $db=null;
 	protected $moduleConfig=array();
@@ -365,20 +365,14 @@ class WOAAPI
 			$mail=new \Mail($name,$email);
 			return $mail;
 		}
-		else if(class_exists('WHMCS\Mail'))
-		{
-			$mail=new WHMCS\Mail($name,$email);
-			return $mail;
-		}
 		else if(class_exists('\WHMCS\Mail\PHPMailer'))
 		{
-			$mail=new WHMCS\Mail\PHPMailer($name,$email);
+			$mail=new \WHMCS\Mail\PHPMailer($name,$email);
 			return $mail;
 		}
-		
-		$mail=class_exists('PHPMailer')?new PHPMailer(true):false;
-		
-		if(file_exists(ROOTDIR.'/includes/classes/PHPMailer/PHPMailerAutoload.php'))
+
+		$mail=false;
+		if(class_exists('PHPMailer') || file_exists(ROOTDIR.'/includes/classes/PHPMailer/PHPMailerAutoload.php'))
 		{
 			require_once(ROOTDIR.'/includes/classes/PHPMailer/PHPMailerAutoload.php');
 			$mail = new PHPMailer(true);
@@ -388,13 +382,14 @@ class WOAAPI
 			require_once(ROOTDIR.'/vendor/phpmailer/phpmailer/PHPMailerAutoload.php');
 			$mail = new \PHPMailer(true);
 		}
-		elseif(file_exists(ROOTDIR.'/vendor/autoload.php'))
+		elseif(class_exists('\PHPMailer\PHPMailer\PHPMailer')) 
 		{
-			require_once(ROOTDIR.'/vendor/autoload.php');
-			if(class_exists('PHPMailer\PHPMailer\PHPMailer')) 
-			{
-				$mail = new \PHPMailer\PHPMailer\PHPMailer(true);
-			}
+			$mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+		}
+		
+		if($mail===false)
+		{
+			return false;	
 		}
 				
 		if($mail===false)
@@ -427,11 +422,15 @@ class WOAAPI
 				$whmcs['SMTPPassword']=$this->decrypt($whmcs['SMTPPassword']);
 			}
 			
+			$maillerName=get_class($mail);
 			$hostname = $this->serverHostname();
-			$hostname=PHPMailer::isValidHost($hostname);
-			if( !$hostname || ($hostname = "localhost.localdomain") ) 
+			if(method_exists($maillerName,'isValidHost'))
 			{
-				$hostname = parse_url($whmcs['SystemURL'], PHP_URL_HOST);
+				$hostname=$maillerName::isValidHost($hostname);
+				if(!$hostname || ($hostname = "localhost.localdomain") ) 
+				{
+					$hostname = parse_url($whmcs['SystemURL'], PHP_URL_HOST);
+				}
 			}
 			
 			$mail->isSMTP();

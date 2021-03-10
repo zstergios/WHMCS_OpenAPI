@@ -1,3 +1,6 @@
+#Version 3.0.9
+WOAAPI::getMailer hostname fix WHMCS 7.x/8.1.x
+
 #Version 3.0.8
 WOAAPI::getMailer fix WHMCS 8
 WOADB:loadFromConfig - Fix Path for Windows
