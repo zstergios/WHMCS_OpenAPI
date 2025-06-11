@@ -1,10 +1,10 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     3.0.8
+ * @version     3.0.10
  * @author      Stergios Zgouletas | WEB EXPERT SERVICES LTD <info@web-expert.gr>
  * @link        http://www.web-expert.gr
- * @copyright   Copyright (C) 2010-2021 Web-Expert.gr All Rights Reserved
+ * @copyright   Copyright (C) 2010-2024 Web-Expert.gr All Rights Reserved
  * @license     http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL
 **/
 if(!defined("WHMCS")) die("This file cannot be accessed directly");
@@ -346,6 +346,16 @@ class WOADB{
 		$data=$this->fetch_array($this->query($q),'MYSQL_NUM');
 		if(empty($data) || !is_array($data)) $data=array(0=>NULL);
 		return $data[0];
+	}
+	
+	public function getIntValue($q)
+	{		
+		return (int)$this->getValue($q);
+	}
+	
+	public function getFloatValue($q)
+	{		
+		return (float)$this->getValue($q);
 	}
 	
 	//Get Single Row

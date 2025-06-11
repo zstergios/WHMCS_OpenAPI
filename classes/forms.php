@@ -1,26 +1,29 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     3.0.8
+ * @version     3.0.10
  * @author      Stergios Zgouletas | WEB EXPERT SERVICES LTD <info@web-expert.gr>
  * @link        http://www.web-expert.gr
- * @copyright   Copyright (C) 2010-2021 Web-Expert.gr All Rights Reserved
+ * @copyright   Copyright (C) 2010-2024 Web-Expert.gr All Rights Reserved
  * @license     http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL
 **/
 if(!defined("WHMCS")) die("This file cannot be accessed directly");
 
-class WOAForms{
+class WOAForms
+{
 	private static $instance;
 	protected $addon;
 	protected $addonPath;
 	protected $addonLink;
 	
-	function __construct($addon=''){
+	function __construct($addon='')
+	{
 		if(empty($addon) && isset($_REQUEST['module'])) $addon=$_REQUEST['module'];
 		if(!empty($addon)) $this->setAddon($addon);
 	}
 	
-	public static function getInstance($addon='') {
+	public static function getInstance($addon='') 
+	{
 		if(!self::$instance) self::$instance = new self($addon);
 		return self::$instance;
 	}
@@ -67,7 +70,8 @@ class WOAForms{
 	{
 		$pagination=array();
 		$pages=1;
-		if($total>$limit){
+		if($total>$limit)
+		{
 			$pages=ceil($total/$limit);
 			for($i=1;$i<=$pages;$i++) $pagination['p'.$i]='<a class="paglink'.($activePage==$i?' active':'').'" href="'.$link.$i.'">'.$i.'</a>';
 		}
@@ -75,19 +79,25 @@ class WOAForms{
 
 		if($totalPaginations>10){
 			$dottes='......';
-			if($activePage==1){
+			if($activePage==1)
+			{
 				$newPagination = array_slice($pagination, 0,5,true); 
 				$newPagination[]=$dottes;
-				$newPagination['p'.$totalPaginations-1]=$pagination['p'.$totalPaginations-1];
-				$newPagination['p'.$totalPaginations-2]=$pagination['p'.$totalPaginations-2];
-			}elseif($activePage==$totalPaginations){
+				$newPagination['p'.($totalPaginations-1)]=$pagination['p'.($totalPaginations-1)];
+				$newPagination['p'.($totalPaginations-2)]=$pagination['p'.($totalPaginations-2)];
+			}
+			elseif($activePage==$totalPaginations)
+			{
 				$newPagination = array('p1'=>$pagination['p1'],'p2'=>$pagination['p2'],$dottes)+array_slice($pagination,$totalPaginations-5,5,true); 
-			}else{
+			}
+			else
+			{
 				$slice=($activePage-3>0)?$activePage-3:0;
 				$newPagination=array_slice($pagination,$slice,5,true);
 				if($slice>1) array_unshift($newPagination,$dottes);
-				for($i=1;$i<4;$i++){
-					if(isset($pagination['p'.$activePage+$i]) && $activePage+$i<$totalPaginations) $newPagination['p'.$activePage+$i]=$pagination['p'.$activePage+$i];
+				for($i=1;$i<4;$i++)
+				{
+					if(isset($pagination['p'.($activePage+$i)]) && $activePage+$i<$totalPaginations) $newPagination['p'.($activePage+$i)]=$pagination['p'.($activePage+$i)];
 				}
 				$lastPage = (int)str_replace('p','',key($newPagination));
 				if($lastPage!=$totalPaginations || $lastPage+1!=$totalPaginations) $newPagination[]=$dottes;
@@ -125,7 +135,8 @@ class WOAForms{
 		//if(version_compare(WHMCSV,'6.0.0','ge')) $js='<script>$(document).ready(function(){$( "a[href^=\'#tab\']" ).click( function() {  var tabID = $(this).attr(\'href\').substr(4); $("#tab").val(tabID);});</script>';
 		$html='<div id="tabs" style="width:100%;"><ul class="nav nav-tabs admin-tabs" role="tablist">'; 
 		$menuhtml=$contenthtml="";
-		for($i=0;$i<count($tabs);$i++){
+		for($i=0;$i<count($tabs);$i++)
+		{
 			//$id=version_compare(WHMCSV,'6.0.0','ge')?'tabLink':'tab';
 			$id='tab';
 			$menuhtml.='<li role="tab" data-toggle="tab" id="'.$id.$i.'" class="tab woatab"><a href="#tab'.$i.'">'.$tabs[$i]['title'].'</a></li>';
@@ -137,7 +148,8 @@ class WOAForms{
 		return $html;
 	}
 	
-	public function createTable($rows,$w='100%',$h='100%',$class='',$bgRowColor='#E5E5E5'){
+	public function createTable($rows,$w='100%',$h='100%',$class='',$bgRowColor='#E5E5E5')
+	{
 		if(!is_array($rows)) return '';
 		$html='<table class="datatable wtable '.$class.'" border="0" height="'.$h.'" width="'.$w.'" cellspacing="0" cellpadding="2">';
 		$c=0;
@@ -160,7 +172,8 @@ class WOAForms{
 		return $html;
 	}
 	
-	public function selectbox($name,$options=array(),$selected=array(),$extra="",$keyname='value'){
+	public function selectbox($name,$options=array(),$selected=array(),$extra="",$keyname='value')
+	{
 		if(!is_array($options)) return '';
 		if(!is_array($selected)) $selected=explode(",",$selected);
 		$id=str_replace(array('[',']'),'',$name);
@@ -179,7 +192,8 @@ class WOAForms{
 		return $html;
 	}
 	
-	public function checkboxes($name,$options=array(),$selected=array(),$extra="",$keyname='value',$sep=' '){
+	public function checkboxes($name,$options=array(),$selected=array(),$extra="",$keyname='value',$sep=' ')
+	{
 		if(!is_array($options)) return false;
 		if(!is_array($selected)) $selected=explode(",",$selected);
 		$id=str_replace(array('[',']'),'',$name);
@@ -197,7 +211,8 @@ class WOAForms{
 		return '<div id="chkbox'.$id.'" class="chkbox">'.implode($sep,$boxes).'</div>';
 	}
 	
-	public function radioboxes($name,$options=array(),$selected=array(),$extra="",$keyname='value',$sep=' '){
+	public function radioboxes($name,$options=array(),$selected=array(),$extra="",$keyname='value',$sep=' ')
+	{
 		$checboxes=$this->checkboxes($name,$options,$selected,$extra,$keyname,$sep);
 		return str_replace(array("checkbox","chkbox","achkbox"),array("radio","rdbox",'ardkbox'),$checboxes);
 	}

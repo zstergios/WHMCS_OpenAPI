@@ -1,16 +1,16 @@
 <?php
 /**
  * @package		WHMCS openAPI 
- * @version     3.0.9
+ * @version     3.0.10
  * @author      Stergios Zgouletas | WEB EXPERT SERVICES LTD <info@web-expert.gr>
  * @link        http://www.web-expert.gr
- * @copyright   Copyright (C) 2010 Web-Expert.gr All Rights Reserved
+ * @copyright   Copyright (C) 2010-2024 Web-Expert.gr All Rights Reserved
  * @license     http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL
 **/
 if(!defined("WHMCS")) die("This file cannot be accessed directly");
 
 //WHMCS 7.9
-use WHMCS\Mail;
+use \WHMCS\Mail;
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
 use PHPMailer\PHPMailer\Exception;
@@ -18,13 +18,14 @@ use PHPMailer\PHPMailer\Exception;
 class WOAAPI
 {
 	private static $instance;
-	private static $version='3.0.9';
+	private static $version='3.0.11';
 	protected $debug=false;
 	protected $db=null;
 	protected $moduleConfig=array();
 	protected $whmcsconfig=null;
 	protected $updateServers=array();
 	protected $timeout=30;
+	protected $module=null;
 	protected $languages=array();
 	protected $countries=array('countries'=>array(),'callingCodes'=>array());
 	
@@ -35,6 +36,7 @@ class WOAAPI
 		list($Version,$Release)=@explode('-',$whmcs["Version"]);
 		if(!defined('WHMCSV')) define('WHMCSV',$Version);
 		$this->setUpdateServer('https://raw.githubusercontent.com/zstergios/WHMCS_OpenAPI/master/update.ini?t='.time(),'openAPI');
+		if(isset($_REQUEST['module'])) $this->setModule($_REQUEST['module']);
 	}
 	
 	public static function getInstance()
@@ -48,6 +50,11 @@ class WOAAPI
 		return self::$version;
 	}
 	
+	function setModule($module)
+	{
+		if($module) $this->module=$module;
+	}
+	
 	public function getLang($key)
 	{
 		global $_LANG;
@@ -56,8 +63,9 @@ class WOAAPI
 		return $languageTxt;
 	}
 	
-	public function getAddonLang($language='',$module,$fallback=true)
+	public function getAddonLang($language='',$module='',$fallback=true)
 	{
+		if(empty($module)) $module=$this->module;
 		if(empty($language) && isset($_SESSION['Language'])) $language=$_SESSION['Language'];
 		if(empty($language)) $language='english';
 		$language=strtolower($language);
@@ -300,8 +308,9 @@ class WOAAPI
 	}
 	
 	#Get Addon Config
-	public function getModuleParams($key=null,$module)
+	public function getModuleParams($key=null,$module='')
 	{
+		if(empty($module)) $module=$this->module;
 		if(!isset($this->moduleConfig[$module]) || !count($this->moduleConfig[$module]))
 		{
 			
@@ -316,8 +325,9 @@ class WOAAPI
 		return $this->moduleConfig[$module];
 	}
 	
-	public function setModuleParams($name,$value='',$module)
+	public function setModuleParams($name,$value='',$module='')
 	{
+		if(empty($module)) $module=$this->module;
 		$this->db->query('UPDATE `tbladdonmodules` SET `value`='.$this->db->quoteValue($value).' WHERE `setting`='.$this->db->quoteValue($name).' AND `module`='.$this->db->quoteValue($module).';');
 		$this->moduleConfig[$module][$name]=$value;
 	}
@@ -372,9 +382,13 @@ class WOAAPI
 		}
 
 		$mail=false;
-		if(class_exists('PHPMailer') || file_exists(ROOTDIR.'/includes/classes/PHPMailer/PHPMailerAutoload.php'))
+		if(file_exists(ROOTDIR.'/includes/classes/PHPMailer/PHPMailerAutoload.php'))
 		{
 			require_once(ROOTDIR.'/includes/classes/PHPMailer/PHPMailerAutoload.php');
+		}
+		
+		if(class_exists('PHPMailer'))
+		{
 			$mail = new PHPMailer(true);
 		}
 		elseif(file_exists(ROOTDIR.'/vendor/phpmailer/phpmailer/PHPMailerAutoload.php'))
